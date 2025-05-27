@@ -51,6 +51,24 @@
             toggleButton.innerText = isHidden ? 'Hide All' : 'Show All';
         }
 
+        function handleSummaryClick() {
+            // Przełącz widoczność wszystkich grup
+            toggleAllGroups();
+
+            // Pobierz obecny stan przycisku, aby ustawić odpowiednią podpowiedź
+            const toggleButton = document.getElementById('toggleButton');
+            const isHidden = toggleButton.innerText === 'Show All';
+
+            // Zaktualizuj podpowiedź
+            const tooltip = document.querySelector('.item.summ');
+            if (isHidden) {
+                tooltip.setAttribute('title', 'Click to show all tests');
+            } else {
+                tooltip.setAttribute('title', 'Click to hide all tests');
+            }
+        }
+
+
         function filterResults(status) {
             const rows = document.querySelectorAll('tbody tr');
             const groups = document.querySelectorAll('.group-header');
@@ -122,25 +140,37 @@
     </script>
 </head>
 <body>
-    <div class="theme-switcher">
-        <label for="theme-select">Choose Theme:</label>
-        <select id="theme-select" onchange="changeTheme()">
-            <option value="">Dark Theme</option>
-            <option value="light-theme">Light Theme</option>
-        </select>
+    <div class="header">
+        <div class="theme-switcher">
+            <label for="theme-select">Choose Theme:</label>
+            <select id="theme-select" onchange="changeTheme()">
+                <option value="">Dark Theme</option>
+                <option value="light-theme">Light Theme</option>
+            </select>
+        </div>
+        <div class="logo">Test Report</div>
+        <!-- <nav class="navigation">
+            <a href="#summary">Summary</a>
+            <a href="#filters">Filters</a>
+            <a href="#table">Test Details</a>
+            <a href="#download">Download PDF</a>
+        </nav> -->
+        <div class="search-container">
+            <input type="text" id="searchInput" onkeyup="searchTests()" placeholder="Search for tests..." />
+        </div>
     </div>
     <div class="container">
         <h1>Responsive Test Report</h1>
         <div class="summary">
-            <div class="item summ">
+            <div class="item summ" onclick="handleSummaryClick()" title="Click to toggle all tests">
                 <span>{{ total_tests }}</span>
                 <small>Total Tests</small>
             </div>
-            <div class="item pass">
+            <div class="item pass" onclick="filterResults('PASS')" title="Click to show all PASS tests">
                 <span>{{ passed }}</span>
                 <small>PASS {{ pass_percentage }}%</small>
             </div>
-            <div class="item fail">
+            <div class="item fail" onclick="filterResults('FAIL')" title="Click to show all FAIL tests">
                 <span>{{ failed }}</span>
                 <small>FAIL {{ fail_percentage }}%</small>
             </div>

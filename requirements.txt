@@ -2,7 +2,6 @@ RPi.GPIO
 termcolor
 pymodbus>=2.5.0
 pyserial
-RPi.GPIO
 smbus2
 spidev
 pyyaml>=5.4.1

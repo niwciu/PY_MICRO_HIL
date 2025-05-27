@@ -494,3 +494,29 @@ body.light-theme {
     margin-bottom: 15px;
 }
 
+
+
+
+.header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background-color: #333;
+    color: white;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.header .navigation a {
+    color: white;
+    text-decoration: none;
+    margin: 0 10px;
+    font-size: 1rem;
+}
+
+.header .navigation a:hover {
+    text-decoration: underline;
+}

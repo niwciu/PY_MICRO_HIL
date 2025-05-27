@@ -1,6 +1,6 @@
 protocols:
   modbus:
-    port: /dev/ttyUSB0
+    port: /dev/ttyACM0
     baudrate: 115200
     parity: N
     stop_bits: 1
