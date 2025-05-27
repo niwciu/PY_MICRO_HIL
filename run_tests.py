@@ -1,29 +1,30 @@
 import sys
 import os
-import importlib
-from core.test_framework import TestFramework, TestGroup
+import importlib.util
+from core.test_framework import TestFramework
 from core.logger import Logger
 from core.peripheral_manager import PeripheralManager
-from core.protocols import ModbusTRU
-from core.RPiPeripherals import RPiGPIO, RPiPWM, RPiUART, RPiI2C, RPiSPI
 from core.peripheral_config_loader import load_peripheral_configuration
+from core.test_group_factory import create_test_group_from_module
 import RPi.GPIO as GPIO
 
 def load_test_groups(test_directory):
     """
-    Dynamically loads test groups from a specified directory.
-    :param test_directory: Path to the directory containing test group runners.
-    :return: A list of test group objects.
+    Dynamically loads test groups from test modules in a specified directory.
+    :param test_directory: Path to the directory containing test modules.
+    :return: A list of TestGroup objects.
     """
     test_groups = []
-    for file_name in os.listdir(test_directory):
-        if file_name.endswith("_runner.py"):  # Load only runner files
-            module_name = f"tests.{file_name[:-3]}"  # Remove the .py extension
-            module = importlib.import_module(module_name)
-            for attr_name in dir(module):
-                attr = getattr(module, attr_name)
-                if isinstance(attr, TestGroup):
-                    test_groups.append(attr)
+    for root, _, files in os.walk(test_directory):
+        for file in files:
+            if file.startswith("test_") and file.endswith(".py"):
+                module_path = os.path.join(root, file)
+                module_name = os.path.splitext(os.path.relpath(module_path, test_directory))[0].replace(os.sep, '.')
+                spec = importlib.util.spec_from_file_location(module_name, module_path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                group = create_test_group_from_module(module)
+                test_groups.append(group)
     return test_groups
 
 def main():
@@ -51,7 +52,7 @@ def main():
     # Load test groups dynamically
     test_directory = os.path.join(os.path.dirname(__file__), 'tests')
     test_groups = load_test_groups(test_directory)
-    print(f"Discovered test groups: {test_groups}")
+    print(f"Discovered test groups: {[group.name for group in test_groups]}")
 
     # Add test groups to the framework
     for group in test_groups:
