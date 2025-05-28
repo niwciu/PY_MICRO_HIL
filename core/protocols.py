@@ -227,3 +227,112 @@ class ModbusRTU(ModbusRTU_API):
             raise ValueError(f"Modbus error: {response}")
         return response
 
+# import can
+
+# from abc import ABC, abstractmethod
+
+# class CANBus_API(ABC):
+#     @abstractmethod
+#     def send_message(self, arbitration_id: int, data: bytes, extended_id: bool = False):
+#         """
+#         Wysyła wiadomość CAN.
+#         :param arbitration_id: ID ramki CAN (standard lub rozszerzony).
+#         :param data: Dane do wysłania (max 8 bajtów).
+#         :param extended_id: Czy używać rozszerzonego identyfikatora (29-bit).
+#         """
+#         pass
+
+#     @abstractmethod
+#     def receive_message(self, timeout: float = 1.0):
+#         """
+#         Odbiera wiadomość CAN z zadanym timeoutem.
+#         :param timeout: Czas oczekiwania w sekundach.
+#         :return: Odebrana wiadomość jako obiekt.
+#         """
+#         pass
+
+#     @abstractmethod
+#     def get_initialized_params(self):
+#         """
+#         Zwraca parametry konfiguracji magistrali CAN.
+#         """
+#         pass
+
+#     @abstractmethod
+#     def initialize(self):
+#         """
+#         Inicjalizuje interfejs CAN.
+#         """
+#         pass
+
+#     @abstractmethod
+#     def release(self):
+#         """
+#         Zamyka interfejs CAN i zwalnia zasoby.
+#         """
+#         pass
+
+
+# class CANBus(CANBus_API):
+#     def __init__(self, channel='can0', bitrate=500000):
+#         """
+#         Klasa do obsługi magistrali CAN przez socketCAN.
+#         :param channel: Nazwa interfejsu (np. 'can0').
+#         :param bitrate: Prędkość magistrali CAN (bitrate).
+#         """
+#         self.channel = channel
+#         self.bitrate = bitrate
+#         self.bus = None
+
+#     def get_required_resources(self):
+#         """Zwraca wymagane zasoby systemowe."""
+#         return {"interface": self.channel}
+
+#     def get_initialized_params(self):
+#         """Zwraca aktualne parametry połączenia CAN."""
+#         return {
+#             "channel": self.channel,
+#             "bitrate": self.bitrate
+#         }
+
+#     def initialize(self):
+#         """Inicjalizuje interfejs CAN."""
+#         self.bus = can.interface.Bus(channel=self.channel, bustype='socketcan')
+
+#     def release(self):
+#         """Zamyka połączenie z magistralą CAN."""
+#         if self.bus:
+#             self.bus.shutdown()
+#             self.bus = None
+
+#     def send_message(self, arbitration_id, data, extended_id=False):
+#         """Wysyła wiadomość CAN."""
+#         if not isinstance(data, (bytes, bytearray)):
+#             raise TypeError("Data must be of type 'bytes' or 'bytearray'.")
+
+#         if len(data) > 8:
+#             raise ValueError("CAN frame data must be 8 bytes or less.")
+
+#         msg = can.Message(
+#             arbitration_id=arbitration_id,
+#             data=data,
+#             is_extended_id=extended_id
+#         )
+
+#         try:
+#             self.bus.send(msg)
+#         except can.CanError as e:
+#             raise IOError(f"CAN send failed: {e}")
+
+#     def receive_message(self, timeout=1.0):
+#         """Odbiera wiadomość CAN w określonym czasie."""
+#         msg = self.bus.recv(timeout)
+#         if msg is None:
+#             raise TimeoutError("No CAN message received within timeout.")
+#         return {
+#             "timestamp": msg.timestamp,
+#             "arbitration_id": msg.arbitration_id,
+#             "data": bytes(msg.data),
+#             "extended_id": msg.is_extended_id,
+#             "dlc": msg.dlc
+#         }
