@@ -1,5 +1,5 @@
 import yaml
-from core.RPiPeripherals import RPiGPIO, RPiPWM, RPiUART, RPiI2C, RPiSPI#, RPi1Wire, RPiADC, RPiCAN, RPiHardwarePWM
+from core.RPiPeripherals import RPiGPIO, RPiPWM, RPiUART, RPiI2C, RPiSPI, RPi1Wire, RPiADC, RPiCAN, RPiHardwarePWM
 from core.protocols import ModbusRTU
 import RPi.GPIO as GPIO
 
