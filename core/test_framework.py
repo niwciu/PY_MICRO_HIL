@@ -140,32 +140,10 @@ class TestGroup:
     def set_teardown(self, teardown_func):
         self.teardown = teardown_func
 
-    def run_tests(self, framework):
-        """
-        Uruchamia wszystkie testy w grupie.
-        """
-        # Uruchom setup grupy, jeśli istnieje
-        if self.setup:
-            self.setup(framework)
-
-        # Uruchom testy
-        for test in self.tests:
-            test.run(framework, self.name)
-
-        # Uruchom teardown grupy, jeśli istnieje
-        if self.teardown:
-            self.teardown(framework)
-
-
     # def run_tests(self, framework):
     #     """
     #     Uruchamia wszystkie testy w grupie.
     #     """
-    #     # log_line = f"[INFO] Running Test Group:  {self.name}"
-    #     # framework.logger.log(log_line, to_console=True)
-    #     # if framework.logger.log_file:
-    #     #     framework.logger.log(log_line, to_console=False, to_log_file=True)
-
     #     # Uruchom setup grupy, jeśli istnieje
     #     if self.setup:
     #         self.setup(framework)
@@ -177,6 +155,28 @@ class TestGroup:
     #     # Uruchom teardown grupy, jeśli istnieje
     #     if self.teardown:
     #         self.teardown(framework)
+
+
+    def run_tests(self, framework):
+        """
+        Uruchamia wszystkie testy w grupie.
+        """
+        # log_line = f"[INFO] Running Test Group:  {self.name}"
+        # framework.logger.log(log_line, to_console=True)
+        # if framework.logger.log_file:
+        #     framework.logger.log(log_line, to_console=False, to_log_file=True)
+
+        # Uruchom setup grupy, jeśli istnieje
+        if self.setup:
+            self.setup(framework)
+
+        # Uruchom testy
+        for test in self.tests:
+            test.run(framework, self.name)
+
+        # Uruchom teardown grupy, jeśli istnieje
+        if self.teardown:
+            self.teardown(framework)
 
 
 class Test:
@@ -192,7 +192,7 @@ class Test:
 
     def run(self, framework, group_name):
         try:
-            self.test_func(framework, group_name, self.name)
+            self.test_func(framework)
         except Exception as e:
             framework.report_test_result(group_name, self.name, False, str(e))
 

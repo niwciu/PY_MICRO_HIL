@@ -23,17 +23,50 @@ class Protocol(ABC):
 
 
 class PeripheralManager:
-    def __init__(self, devices, logger):
+    def __init__(self, devices, logger, logging_enabled=True):
         """
         Zarządza urządzeniami i rezerwacjami GPIO oraz portów.
         :param devices: Słownik z urządzeniami grupowanymi jako "protocols" i "peripherals".
         :param logger: Instancja klasy Logger do logowania.
+        :param logging_enabled: Czy domyślnie włączyć logowanie w urządzeniach.
         """
         self.devices = devices
         self.logger = logger
+        self.logging_enabled = logging_enabled
         self.gpio_registry = {}  # Rejestracja zajętych pinów w formacie {pin: "DeviceName"}
         self.port_registry = {}  # Rejestracja zajętych portów w formacie {port: "DeviceName"}
         self.initialized_devices = []  # Lista urządzeń zainicjalizowanych do momentu błędu
+
+        # Przekazujemy logger i ustawiamy logowanie w urządzeniach
+        for group in ['protocols', 'peripherals']:
+            if group in self.devices:
+                for device in self.devices[group]:
+                    if hasattr(device, 'logger'):
+                        device.logger = self.logger
+                    if hasattr(device, 'logging_enabled'):
+                        device.logging_enabled = self.logging_enabled
+
+    def enable_logging_all(self):
+        """
+        Włącza logowanie we wszystkich urządzeniach.
+        """
+        self.logging_enabled = True
+        for group in ['protocols', 'peripherals']:
+            if group in self.devices:
+                for device in self.devices[group]:
+                    if hasattr(device, 'enable_logging'):
+                        device.enable_logging()
+
+    def disable_logging_all(self):
+        """
+        Wyłącza logowanie we wszystkich urządzeniach.
+        """
+        self.logging_enabled = False
+        for group in ['protocols', 'peripherals']:
+            if group in self.devices:
+                for device in self.devices[group]:
+                    if hasattr(device, 'disable_logging'):
+                        device.disable_logging()
 
     def initialize_all(self):
         """
@@ -110,7 +143,6 @@ class PeripheralManager:
             # Logowanie parametrów portu przy rezerwacji
             if isinstance(port, str):  # Jeżeli jest to port, np. /dev/ttyUSB0
                 self.logger.log(f"[INFO] Port {port} reserved for {device_name}.", to_console=True)
-
 
     def _log_conflict(self, resource, current_device, conflicting_device, resource_type):
         """

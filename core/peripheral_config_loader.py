@@ -1,6 +1,6 @@
 import yaml
 from core.RPiPeripherals import RPiGPIO, RPiPWM, RPiUART, RPiI2C, RPiSPI#, RPi1Wire, RPiADC, RPiCAN, RPiHardwarePWM
-from core.protocols import ModbusTRU
+from core.protocols import ModbusRTU
 import RPi.GPIO as GPIO
 
 def load_peripheral_configuration(yaml_file='peripherals_config.yaml'):
@@ -27,7 +27,7 @@ def load_peripheral_configuration(yaml_file='peripherals_config.yaml'):
             timeout = modbus_config.get('timeout', 1)          # Domyślnie 1 sekunda
             
             # Tworzymy obiekt ModbusTRU z pełną konfiguracją
-            modbus = ModbusTRU(port=port, baudrate=baudrate, 
+            modbus = ModbusRTU(port=port, baudrate=baudrate, 
                             parity=parity, stopbits=stopbits, timeout=timeout)
             protocols.append(modbus)
         else:
@@ -82,8 +82,6 @@ def load_peripheral_configuration(yaml_file='peripherals_config.yaml'):
                     raise ValueError("Invalid GPIO configuration, 'pin' and 'mode' are required.")
             else:
                 raise ValueError("Invalid configuration for GPIO, expected dictionary.")
-
-
 
     # PWM
     if 'pwm' in config.get('peripherals', {}):

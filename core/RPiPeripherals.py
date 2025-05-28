@@ -2,107 +2,169 @@ import RPi.GPIO as GPIO
 from smbus2 import SMBus
 import spidev
 import serial
+from abc import ABC, abstractmethod
 
 
-class RPiGPIO:
-    def __init__(self, pin_config):
+class RPiGPIO_API(ABC):
+    @abstractmethod
+    def write(self, pin, value):
+        pass
+    
+    @abstractmethod
+    def read(self, pin):
+        pass
+
+    @abstractmethod
+    def toggle(self, pin):
+        pass
+
+    @abstractmethod
+    def enable_logging(self):
+        pass
+
+    @abstractmethod
+    def disable_logging(self):
+        pass
+
+class RPiGPIO(RPiGPIO_API):
+    def __init__(self, pin_config, logger=None, logging_enabled=True):
         """
-        Klasa do obsługi GPIO.
-        :param pin_config: Słownik w formacie {pin: {'mode': GPIO.OUT, 'initial': GPIO.LOW}}
+        :param pin_config: {pin: {'mode': GPIO.OUT/IN, 'initial': GPIO.LOW/HIGH}}
         """
-        self.pin_config = pin_config
+        self._pin_config = pin_config
+        self._logger = logger
+        self._logging_enabled = logging_enabled
 
     def get_required_resources(self):
-        """
-        Zwraca zasoby wymagane przez GPIO (lista pinów).
-        """
-        return {"pins": list(self.pin_config.keys())}
+        return {"pins": list(self._pin_config.keys())}
 
     def initialize(self):
-        """
-        Inicjalizuje piny GPIO.
-        """
         GPIO.setmode(GPIO.BCM)
-        for pin, config in self.pin_config.items():
+        for pin, config in self._pin_config.items():
             if config['mode'] == GPIO.OUT:
-                GPIO.setup(pin, config['mode'], initial=config.get('initial', GPIO.LOW))
+                GPIO.setup(pin, GPIO.OUT, initial=config.get('initial', GPIO.LOW))
+                self._log(f"[INFO] GPIO pin {pin} set as OUTPUT.")
             else:
-                GPIO.setup(pin, config['mode'])
+                GPIO.setup(pin, GPIO.IN)
+                self._log(f"[INFO] GPIO pin {pin} set as INPUT.")
+
+    def write(self, pin, value):
+        GPIO.output(pin, value)
+        self._log(f"[INFO] Written {value} to GPIO pin {pin}.")
+
+    def read(self, pin):
+        value = GPIO.input(pin)
+        self._log(f"[INFO] Read value {value} from GPIO pin {pin}.")
+        return value
+
+    def toggle(self, pin):
+        current = GPIO.input(pin)
+        GPIO.output(pin, not current)
+        self._log(f"[INFO] Toggled GPIO pin {pin} to {not current}.")
 
     def release(self):
-        """
-        Zwalnia zarezerwowane piny GPIO.
-        """
-        for pin in self.pin_config.keys():
+        for pin in self._pin_config:
             GPIO.cleanup(pin)
+            self._log(f"[INFO] GPIO pin {pin} released.")
 
+    def enable_logging(self):
+        self._logging_enabled = True
+
+    def disable_logging(self):
+        self._logging_enabled = False
+
+    def _log(self, message):
+        if self._logging_enabled and self._logger:
+            self._logger.log(message)
 
 class RPiPWM:
-    def __init__(self, pin, frequency=1000):
-        """
-        Klasa do obsługi PWM.
-        :param pin: Numer pinu GPIO.
-        :param frequency: Częstotliwość PWM w Hz.
-        """
+    def __init__(self, pin, frequency=1000, logger=None, logging_enabled=True):
         self.pin = pin
         self.frequency = frequency
         self.pwm = None
+        self.logger = logger
+        self.logging_enabled = logging_enabled
 
     def get_required_resources(self):
-        """
-        Zwraca zasoby wymagane przez PWM (lista pinów).
-        """
         return {"pins": [self.pin]}
 
     def initialize(self):
-        """
-        Inicjalizuje PWM na pinie.
-        """
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.pin, GPIO.OUT)
         self.pwm = GPIO.PWM(self.pin, self.frequency)
         self.pwm.start(0)
+        self._log(f"[INFO] Started PWM on pin {self.pin} with frequency {self.frequency} Hz.")
 
     def set_duty_cycle(self, duty_cycle):
-        """
-        Ustawia wypełnienie PWM.
-        :param duty_cycle: Wypełnienie w procentach (0-100).
-        """
         if self.pwm:
             self.pwm.ChangeDutyCycle(duty_cycle)
+            self._log(f"[INFO] Set duty cycle to {duty_cycle}% on pin {self.pin}.")
+
+    def set_frequency(self, frequency):
+        if self.pwm:
+            self.pwm.ChangeFrequency(frequency)
+            self._log(f"[INFO] Changed frequency to {frequency} Hz on pin {self.pin}.")
 
     def release(self):
-        """
-        Zatrzymuje PWM i zwalnia pin.
-        """
         if self.pwm:
             self.pwm.stop()
+            self._log(f"[INFO] Stopped PWM on pin {self.pin}.")
         GPIO.cleanup(self.pin)
+        self._log(f"[INFO] Released pin {self.pin}.")
 
+    def enable_logging(self):
+        self.logging_enabled = True
 
-class RPiUART:
-    def __init__(self, port='/dev/serial0', baudrate=9600, timeout=1, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE):
-        """
-        Klasa do obsługi UART.
-        """
+    def disable_logging(self):
+        self.logging_enabled = False
+
+    def _log(self, message):
+        if self.logging_enabled and self.logger:
+            self.logger.log(message)
+
+class RPiUART_API(ABC):
+    @abstractmethod
+    def initialize(self):
+        pass
+    
+    @abstractmethod
+    def send(self, data):
+        pass
+
+    @abstractmethod
+    def receive(self, size=1):
+        pass
+    
+    @abstractmethod
+    def readline(self):
+        pass
+
+    @abstractmethod
+    def enable_logging(self):
+        pass
+
+    @abstractmethod
+    def disable_logging(self):
+        pass
+
+class RPiUART(RPiUART_API):
+    def __init__(self, port='/dev/serial0', baudrate=9600, timeout=1,
+                 parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE,
+                 logger=None, logging_enabled=True):
         self.port = port
         self.baudrate = baudrate
         self.timeout = timeout
         self.parity = parity
         self.stopbits = stopbits
-        self.reserved_pins = [14, 15]  # Standardowe piny TXD i RXD
         self.serial = None
+        self.reserved_pins = [14, 15]  # TXD, RXD
+        self.logger = logger
+        self.logging_enabled = logging_enabled
 
     def get_required_resources(self):
-        """
-        Zwraca zasoby wymagane przez UART (piny i port).
-        """
         return {"pins": self.reserved_pins, "ports": [self.port]}
 
     def initialize(self):
-        """
-        Inicjalizuje port UART.
-        """
         self.serial = serial.Serial(
             port=self.port,
             baudrate=self.baudrate,
@@ -110,18 +172,33 @@ class RPiUART:
             parity=self.parity,
             stopbits=self.stopbits
         )
+        self._log(f"[INFO] UART initialized on {self.port} with baudrate {self.baudrate}.")
+
+    def send(self, data):
+        if self.serial and self.serial.is_open:
+            self.serial.write(data.encode() if isinstance(data, str) else data)
+            self._log(f"[INFO] Sent data over UART: {data}")
+
+    def receive(self, size=1):
+        if self.serial and self.serial.is_open:
+            data = self.serial.read(size)
+            self._log(f"[INFO] Received data from UART: {data}")
+            return data
+        return b''
+
+    def readline(self):
+        if self.serial and self.serial.is_open:
+            line = self.serial.readline()
+            self._log(f"[INFO] Read line from UART: {line}")
+            return line
+        return b''
 
     def release(self):
-        """
-        Zamyka port UART.
-        """
-        if self.serial:
+        if self.serial and self.serial.is_open:
             self.serial.close()
+            self._log(f"[INFO] UART on port {self.port} closed.")
 
     def get_initialized_params(self):
-        """
-        Zwraca parametry, z którymi zostały zainicjalizowane porty Modbus TRU.
-        """
         return {
             "port": self.port,
             "baudrate": self.baudrate,
@@ -129,6 +206,16 @@ class RPiUART:
             "parity": self.parity,
             "timeout": self.timeout
         }
+
+    def enable_logging(self):
+        self.logging_enabled = True
+
+    def disable_logging(self):
+        self.logging_enabled = False
+
+    def _log(self, message):
+        if self.logging_enabled and self.logger:
+            self.logger.log(message)
 
 
 class RPiI2C:

@@ -1,5 +1,10 @@
-#assertion.py
-_current_context = {}  # Globalny słownik do przechowywania kontekstu
+# assertion.py
+from contextvars import ContextVar
+
+# Tworzenie context variables
+_current_framework = ContextVar("framework", default=None)
+_current_group_name = ContextVar("group_name", default=None)
+_current_test_name = ContextVar("test_name", default=None)
 
 def set_test_context(framework, group_name, test_name):
     """
@@ -8,16 +13,24 @@ def set_test_context(framework, group_name, test_name):
     :param group_name: Nazwa grupy testowej.
     :param test_name: Nazwa testu.
     """
-    _current_context["framework"] = framework
-    _current_context["group_name"] = group_name
-    _current_context["test_name"] = test_name
-
+    _current_framework.set(framework)
+    _current_group_name.set(group_name)
+    _current_test_name.set(test_name)
 
 def clear_test_context():
     """
     Czyści globalny kontekst testu.
     """
-    _current_context.clear()
+    _current_framework.set(None)
+    _current_group_name.set(None)
+    _current_test_name.set(None)
+
+def _get_context(context=None):
+    return {
+        "framework": context.get("framework") if context else _current_framework.get(),
+        "group_name": context.get("group_name") if context else _current_group_name.get(),
+        "test_name": context.get("test_name") if context else _current_test_name.get(),
+    }
 
 def TEST_FAIL_MESSAGE(message, context=None):
     """
@@ -25,21 +38,16 @@ def TEST_FAIL_MESSAGE(message, context=None):
     Jeśli kontekst (context) jest dostępny, raportuje wynik przez framework.
     Jeśli brak kontekstu, przechowuje symbol do późniejszego wykonania.
     """
-    if context or _current_context:
-        # Jeśli mamy kontekst (z argumentów lub globalny), wykonaj asercję
-        framework = (context or _current_context).get("framework")
-        group_name = (context or _current_context).get("group_name")
-        test_name = (context or _current_context).get("test_name")
-        framework.report_test_result(
-            group_name,
-            test_name,
+    ctx = _get_context(context)
+    if ctx["framework"]:
+        ctx["framework"].report_test_result(
+            ctx["group_name"],
+            ctx["test_name"],
             False,
             message
         )
     else:
-        # Jeśli brak kontekstu, przechowaj symbol do późniejszego wykonania
         return ("TEST_FAIL_MESSAGE", message)
-
 
 def TEST_INFO_MESSAGE(message, context=None):
     """
@@ -47,17 +55,16 @@ def TEST_INFO_MESSAGE(message, context=None):
     Jeśli kontekst (context) jest dostępny, używa frameworka do logowania.
     Jeśli brak kontekstu, przechowuje symbol do późniejszego wykonania.
     """
-    if context or _current_context:
-        # Jeśli mamy kontekst, wykonaj logowanie przez framework
-        framework = (context or _current_context).get("framework")
-        group_name = (context or _current_context).get("group_name")
-        test_name = (context or _current_context).get("test_name")
-        framework.report_test_info(group_name, test_name, message)
+    ctx = _get_context(context)
+    if ctx["framework"]:
+        ctx["framework"].report_test_info(
+            ctx["group_name"],
+            ctx["test_name"],
+            message
+        )
     else:
-        # Jeśli brak kontekstu, przechowaj symbol do późniejszego wykonania
         return ("TEST_INFO_MESSAGE", message)
 
-    
 def TEST_ASSERT_EQUAL(expected, actual, context=None):
     """
     Symboliczna asercja sprawdzająca równość.
@@ -65,24 +72,19 @@ def TEST_ASSERT_EQUAL(expected, actual, context=None):
     :param expected: Oczekiwana wartość.
     :param context: (Opcjonalny) Słownik zawierający framework, grupę i nazwę testu.
     """
-    if context or _current_context:
-        # Jeśli mamy kontekst (z argumentów lub globalny), wykonaj asercję
-        framework = (context or _current_context).get("framework")
-        group_name = (context or _current_context).get("group_name")
-        test_name = (context or _current_context).get("test_name")
-        if actual != expected:
-            framework.report_test_result(
-                group_name,
-                test_name,
+    ctx = _get_context(context)
+    if ctx["framework"]:
+        if expected != actual:
+            ctx["framework"].report_test_result(
+                ctx["group_name"],
+                ctx["test_name"],
                 False,
-                f"Assertion failed! Expected value = {expected}, actual value = {actual} "
+                f"Assertion failed! Expected = {expected}, actual = {actual}"
             )
         else:
-            framework.report_test_result(group_name, test_name, True)
+            ctx["framework"].report_test_result(ctx["group_name"], ctx["test_name"], True)
     else:
-        # Jeśli brak kontekstu, przechowaj symbol do późniejszego wykonania
         return ("TEST_ASSERT_EQUAL", actual, expected)
-
 
 def TEST_ASSERT_TRUE(condition, context=None):
     """
@@ -90,22 +92,19 @@ def TEST_ASSERT_TRUE(condition, context=None):
     :param condition: Warunek do sprawdzenia.
     :param context: (Opcjonalny) Słownik zawierający framework, grupę i nazwę testu.
     """
-    if context or _current_context:
-        framework = (context or _current_context).get("framework")
-        group_name = (context or _current_context).get("group_name")
-        test_name = (context or _current_context).get("test_name")
+    ctx = _get_context(context)
+    if ctx["framework"]:
         if not condition:
-            framework.report_test_result(
-                group_name,
-                test_name,
+            ctx["framework"].report_test_result(
+                ctx["group_name"],
+                ctx["test_name"],
                 False,
-                f"Assertion failed: condition is not true"
+                "Assertion failed: condition is not true"
             )
         else:
-            framework.report_test_result(group_name, test_name, True)
+            ctx["framework"].report_test_result(ctx["group_name"], ctx["test_name"], True)
     else:
         return ("TEST_ASSERT_TRUE", condition)
-
 
 def TEST_ASSERT_IN(item, collection, context=None):
     """
@@ -114,18 +113,16 @@ def TEST_ASSERT_IN(item, collection, context=None):
     :param collection: Kolekcja, w której szukamy elementu.
     :param context: (Opcjonalny) Słownik zawierający framework, grupę i nazwę testu.
     """
-    if context or _current_context:
-        framework = (context or _current_context).get("framework")
-        group_name = (context or _current_context).get("group_name")
-        test_name = (context or _current_context).get("test_name")
+    ctx = _get_context(context)
+    if ctx["framework"]:
         if item not in collection:
-            framework.report_test_result(
-                group_name,
-                test_name,
+            ctx["framework"].report_test_result(
+                ctx["group_name"],
+                ctx["test_name"],
                 False,
                 f"Assertion failed: {item} not in {collection}"
             )
         else:
-            framework.report_test_result(group_name, test_name, True)
+            ctx["framework"].report_test_result(ctx["group_name"], ctx["test_name"], True)
     else:
         return ("TEST_ASSERT_IN", item, collection)
