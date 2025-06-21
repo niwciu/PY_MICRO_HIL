@@ -1,125 +1,145 @@
 import yaml
-from py_micro_hil.RPiPeripherals import RPiGPIO, RPiPWM, RPiUART, RPiI2C, RPiSPI, RPi1Wire, RPiADC, RPiCAN, RPiHardwarePWM
+from pathlib import Path
+from py_micro_hil.RPiPeripherals import (
+    RPiGPIO, RPiPWM, RPiUART, RPiI2C, RPiSPI,
+    RPi1Wire, RPiADC, RPiCAN, RPiHardwarePWM
+)
 from py_micro_hil.protocols import ModbusRTU
 import RPi.GPIO as GPIO
 
-def load_peripheral_configuration(yaml_file='peripherals_config.yaml'):
+
+def load_peripheral_configuration(yaml_file=None, logger=None):
     """
-    Ładuje konfigurację peryferiów z pliku YAML.
-    :param yaml_file: Ścieżka do pliku YAML.
-    :return: Zwraca słownik z peryferiami i protokołami do załadowania.
+    Loads peripheral configuration from a YAML file.
+    If no path is provided, looks in the current working directory.
+    :param yaml_file: Optional path to the YAML file.
+    :param logger: Optional logger instance (uses .log()).
+    :return: Dictionary with 'peripherals' and 'protocols' lists.
     """
-    with open(yaml_file, 'r') as f:
-        config = yaml.safe_load(f)  # Załadowanie pliku YAML
-    
+
+    def log_or_raise(msg, warning=False):
+        tag = "[WARNING]" if warning else "[ERROR]"
+        if logger:
+            logger.log(f"{tag} {msg}", to_console=True, to_log_file=not warning)
+        if not warning:
+            raise ValueError(f"{tag} {msg}")
+
+    if yaml_file is None:
+        yaml_file = Path.cwd() / "peripherals_config.yaml"
+    else:
+        yaml_file = Path(yaml_file)
+
+    if not yaml_file.exists():
+        log_or_raise(f"Peripheral config file not found: {yaml_file.resolve()}", warning=False)
+
+    try:
+        with yaml_file.open("r") as f:
+            config = yaml.safe_load(f)
+    except yaml.YAMLError as e:
+        log_or_raise(f"Failed to parse YAML: {e}", warning=False)
+
+    if config is None:
+        log_or_raise("Peripheral configuration file is empty – using default empty configuration.", warning=True)
+        config = {}
+
+    peripherals_cfg = config.get("peripherals") or {}
+    protocols_cfg = config.get("protocols") or {}
+
     peripherals = []
     protocols = []
 
-# Modbus Protocol
-    if 'modbus' in config.get('protocols', {}):
-        modbus_config = config['protocols']['modbus']
+    # --- Modbus ---
+    if "modbus" in protocols_cfg:
+        modbus_config = protocols_cfg["modbus"]
         if isinstance(modbus_config, dict):
-            # Pobieramy wszystkie parametry z konfiguracji
-            port = modbus_config.get('port', '/dev/ttyUSB0')  # Domyślnie '/dev/ttyUSB0'
-            baudrate = modbus_config.get('baudrate', 9600)     # Domyślnie 9600
-            parity = modbus_config.get('parity', 'N')          # Domyślnie 'N' (None)
-            stopbits = modbus_config.get('stopbits', 1)        # Domyślnie 1
-            timeout = modbus_config.get('timeout', 1)          # Domyślnie 1 sekunda
-            
-            # Tworzymy obiekt ModbusTRU z pełną konfiguracją
-            modbus = ModbusRTU(port=port, baudrate=baudrate, 
-                            parity=parity, stopbits=stopbits, timeout=timeout)
-            protocols.append(modbus)
+            protocols.append(ModbusRTU(
+                port=modbus_config.get("port", "/dev/ttyUSB0"),
+                baudrate=modbus_config.get("baudrate", 9600),
+                parity=modbus_config.get("parity", "N"),
+                stopbits=modbus_config.get("stopbits", 1),
+                timeout=modbus_config.get("timeout", 1)
+            ))
         else:
-            raise ValueError("Invalid configuration for Modbus, expected dictionary with key 'port'.")
+            log_or_raise("Invalid configuration for Modbus – expected dictionary.", warning=True)
 
-    # UART
-    if 'uart' in config.get('peripherals', {}):
-        uart_config = config['peripherals']['uart']
+    # --- UART ---
+    if "uart" in peripherals_cfg:
+        uart_config = peripherals_cfg["uart"]
         if isinstance(uart_config, dict):
-            # Pobieramy wszystkie parametry z konfiguracji
-            port = uart_config.get('port', '/dev/ttyUSB0')  # Domyślnie '/dev/ttyUSB0'
-            baudrate = uart_config.get('baudrate', 9600)     # Domyślnie 9600
-            parity = uart_config.get('parity', 'N')          # Domyślnie 'N' (None)
-            stopbits = uart_config.get('stopbits', 1)        # Domyślnie 1
-            timeout = uart_config.get('timeout', 1)          # Domyślnie 1 sekunda
-            
-            uart = RPiUART(port=port, baudrate=baudrate, 
-                            parity=parity, stopbits=stopbits, timeout=timeout)
-            peripherals.append(uart)
+            peripherals.append(RPiUART(
+                port=uart_config.get("port", "/dev/ttyUSB0"),
+                baudrate=uart_config.get("baudrate", 9600),
+                parity=uart_config.get("parity", "N"),
+                stopbits=uart_config.get("stopbits", 1),
+                timeout=uart_config.get("timeout", 1)
+            ))
         else:
-            raise ValueError("Invalid configuration for UART, expected dictionary with keys 'port' and 'baudrate'.")
+            log_or_raise("Invalid configuration for UART – expected dictionary.", warning=True)
 
-    # GPIO
-    if 'gpio' in config.get('peripherals', {}):
-        for gpio_config in config['peripherals']['gpio']:
+    # --- GPIO ---
+    if "gpio" in peripherals_cfg:
+        for gpio_config in peripherals_cfg["gpio"]:
             if isinstance(gpio_config, dict):
-                if 'pin' in gpio_config and 'mode' in gpio_config:  # Sprawdzenie poprawności słownika
-                    pin = int(gpio_config.get('pin'))  # Konwersja na int, jeśli to string
-                    mode_str = gpio_config.get('mode').upper()  # Upewnij się, że jest to wielkimi literami
-                    initial_str = gpio_config.get('initial', 'LOW').upper()  # Domyślnie 'LOW' jeśli brak
+                try:
+                    pin = int(gpio_config["pin"])
+                    mode_str = gpio_config["mode"].upper()
+                    initial_str = gpio_config.get("initial", "LOW").upper()
 
-                    # Parsowanie 'mode'
-                    if mode_str == "IN" or mode_str == "in" or mode_str == "GPIO.IN": 
-                        mode = GPIO.IN
-                    elif mode_str == "OUT" or mode_str == "out"or mode_str == "GPIO.OUT":
-                        mode = GPIO.OUT
-                    else:
-                        raise ValueError(f"Invalid GPIO mode: {mode_str}")
+                    mode = GPIO.IN if mode_str in ("IN", "GPIO.IN") else GPIO.OUT if mode_str in ("OUT", "GPIO.OUT") else None
+                    initial = GPIO.LOW if initial_str in ("LOW", "GPIO.LOW") else GPIO.HIGH if initial_str in ("HIGH", "GPIO.HIGH") else None
 
-                    # Parsowanie 'initial'
-                    if initial_str == "LOW" or initial_str == "low" or initial_str == "GPIO.LOW" :
-                        initial = GPIO.LOW
-                    elif initial_str == "HIGH" or initial_str == "high" or initial_str == "GPIO.HIGH":
-                        initial = GPIO.HIGH
-                    else:
-                        raise ValueError(f"Invalid GPIO initial value: {initial_str}")
+                    if mode is None:
+                        log_or_raise(f"Invalid GPIO mode: {mode_str}", warning=True)
+                        continue
+                    if initial is None:
+                        log_or_raise(f"Invalid GPIO initial value: {initial_str}", warning=True)
+                        continue
 
-                    # Tworzenie GPIO
-                    gpio = RPiGPIO(pin_config={pin: {'mode': mode, 'initial': initial}})
-                    peripherals.append(gpio)
-                else:
-                    raise ValueError("Invalid GPIO configuration, 'pin' and 'mode' are required.")
+                    peripherals.append(RPiGPIO(pin_config={pin: {"mode": mode, "initial": initial}}))
+                except (KeyError, ValueError, TypeError) as e:
+                    log_or_raise(f"Invalid GPIO config: {gpio_config} – {e}", warning=True)
             else:
-                raise ValueError("Invalid configuration for GPIO, expected dictionary.")
+                log_or_raise("Invalid GPIO configuration format – expected dictionary.", warning=True)
 
-    # PWM
-    if 'pwm' in config.get('peripherals', {}):
-        for pwm_config in config['peripherals']['pwm']:
+    # --- PWM ---
+    if "pwm" in peripherals_cfg:
+        for pwm_config in peripherals_cfg["pwm"]:
             if isinstance(pwm_config, dict):
-                pwm = RPiPWM(pwm_config['pin'], pwm_config.get('frequency', 1000))
-                peripherals.append(pwm)
+                try:
+                    pwm = RPiPWM(pwm_config["pin"], pwm_config.get("frequency", 1000))
+                    peripherals.append(pwm)
+                except Exception as e:
+                    log_or_raise(f"Invalid PWM configuration: {pwm_config} – {e}", warning=True)
             else:
-                raise ValueError("Invalid configuration for PWM, expected dictionary with keys 'pin' and 'frequency'.")
+                log_or_raise("Invalid PWM configuration format – expected dictionary.", warning=True)
 
-    # I2C
-    if 'i2c' in config.get('peripherals', {}):
-        i2c_config = config['peripherals']['i2c']
+    # --- I2C ---
+    if "i2c" in peripherals_cfg:
+        i2c_config = peripherals_cfg["i2c"]
         if isinstance(i2c_config, dict):
-            i2c = RPiI2C(i2c_config.get('bus', 1),i2c_config.get('frequency', 100000))
-            peripherals.append(i2c)
+            peripherals.append(RPiI2C(
+                bus=i2c_config.get("bus", 1),
+                frequency=i2c_config.get("frequency", 100000)
+            ))
         else:
-            raise ValueError("Invalid configuration for I2C, expected dictionary with key 'bus'.")
+            log_or_raise("Invalid configuration for I2C – expected dictionary.", warning=True)
 
-    # SPI
-    if 'spi' in config.get('peripherals', {}):
-        spi_config = config['peripherals']['spi']
+    # --- SPI ---
+    if "spi" in peripherals_cfg:
+        spi_config = peripherals_cfg["spi"]
         if isinstance(spi_config, dict):
-            bus = spi_config.get('bus', 0)  # Numer magistrali SPI (0 lub 1)
-            device = spi_config.get('device', 0)  # Numer urządzenia (0 lub 1)
-            max_speed_hz = spi_config.get('max_speed_hz', 50000)  # Maksymalna prędkość transmisji
-            mode = spi_config.get('mode', 0)  # Tryb SPI (0-3)
-            bits_per_word = spi_config.get('bits_per_word', 8)  # Liczba bitów na słowo
-            cs_high = spi_config.get('cs_high', False)  # Czy linia Chip Select jest aktywna na wysokim poziomie
-            lsbfirst = spi_config.get('lsbfirst', False)  # Czy bity są przesyłane od najmniej znaczącego bitu
-            timeout = spi_config.get('timeout', 1)  # Czas oczekiwania na odpowiedź
-
-            # Tworzenie instancji SPI z odpowiednimi parametrami
-            spi = RPiSPI(bus=bus, device=device, max_speed_hz=max_speed_hz, mode=mode,
-                        bits_per_word=bits_per_word, cs_high=cs_high, lsbfirst=lsbfirst, timeout=timeout)
-            peripherals.append(spi)
+            peripherals.append(RPiSPI(
+                bus=spi_config.get("bus", 0),
+                device=spi_config.get("device", 0),
+                max_speed_hz=spi_config.get("max_speed_hz", 50000),
+                mode=spi_config.get("mode", 0),
+                bits_per_word=spi_config.get("bits_per_word", 8),
+                cs_high=spi_config.get("cs_high", False),
+                lsbfirst=spi_config.get("lsbfirst", False),
+                timeout=spi_config.get("timeout", 1)
+            ))
         else:
-            raise ValueError("Invalid configuration for SPI, expected dictionary with keys 'bus', 'device', and other SPI parameters.")
+            log_or_raise("Invalid configuration for SPI – expected dictionary.", warning=True)
 
     # # CAN
     # if 'can' in config.get('peripherals', {}):

@@ -47,7 +47,7 @@ def main():
 
     # Initialize PeripheralManager
     peripheral_manager = PeripheralManager(devices={}, logger=logger)
-    peripheral_manager.devices = load_peripheral_configuration()
+    peripheral_manager.devices = load_peripheral_configuration(logger=logger)
     print(f"Discovered peripherals: {peripheral_manager.devices}")
 
     # Initialize TestFramework
