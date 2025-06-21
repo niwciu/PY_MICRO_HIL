@@ -1,4 +1,5 @@
 from py_micro_hil.logger import Logger
+from py_micro_hil.report_generator import ReportGenerator
 from abc import ABC, abstractmethod
 import sys
 
@@ -21,6 +22,7 @@ class TestFramework:
         self.pass_count = 0
         self.fail_count = 0
         self.logger = logger
+        self.report_generator = ReportGenerator(self.logger)
 
     def add_test_group(self, group):
         self.test_groups.append(group)
@@ -43,7 +45,8 @@ class TestFramework:
 
         # Generate HTML report if enabled
         if self.logger.html_file:
-            self.logger.generate_html_report()
+            self.report_generator.generate(self.test_groups)
+
 
         if self.fail_count > 0:
             sys.exit(1)

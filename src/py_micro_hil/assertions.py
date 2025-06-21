@@ -1,29 +1,32 @@
-# assertion.py
+# assertions.py
 from contextvars import ContextVar
 
-# Tworzenie context variables
+# Create context variables
 _current_framework = ContextVar("framework", default=None)
 _current_group_name = ContextVar("group_name", default=None)
 _current_test_name = ContextVar("test_name", default=None)
 
+
 def set_test_context(framework, group_name, test_name):
     """
-    Ustawia globalny kontekst testu.
-    :param framework: Instancja frameworku testowego.
-    :param group_name: Nazwa grupy testowej.
-    :param test_name: Nazwa testu.
+    Sets the global test context.
+    :param framework: The test framework instance.
+    :param group_name: The name of the test group.
+    :param test_name: The name of the test.
     """
     _current_framework.set(framework)
     _current_group_name.set(group_name)
     _current_test_name.set(test_name)
 
+
 def clear_test_context():
     """
-    Czyści globalny kontekst testu.
+    Clears the global test context.
     """
     _current_framework.set(None)
     _current_group_name.set(None)
     _current_test_name.set(None)
+
 
 def _get_context(context=None):
     return {
@@ -32,97 +35,95 @@ def _get_context(context=None):
         "test_name": context.get("test_name") if context else _current_test_name.get(),
     }
 
+
+def _report_result(ctx, passed, message=None):
+    ctx["framework"].report_test_result(
+        ctx["group_name"],
+        ctx["test_name"],
+        passed,
+        message
+    )
+
+
+def _report_info(ctx, message):
+    ctx["framework"].report_test_info(
+        ctx["group_name"],
+        ctx["test_name"],
+        message
+    )
+
+
 def TEST_FAIL_MESSAGE(message, context=None):
     """
-    Asercja raportująca niepowodzenie testu z podanym komunikatem.
-    Jeśli kontekst (context) jest dostępny, raportuje wynik przez framework.
-    Jeśli brak kontekstu, przechowuje symbol do późniejszego wykonania.
+    Assertion that reports test failure with a given message.
+    If the context is available, it reports via the framework.
+    Otherwise, it returns a symbolic representation for deferred execution.
     """
     ctx = _get_context(context)
     if ctx["framework"]:
-        ctx["framework"].report_test_result(
-            ctx["group_name"],
-            ctx["test_name"],
-            False,
-            message
-        )
+        _report_result(ctx, False, message)
     else:
         return ("TEST_FAIL_MESSAGE", message)
 
+
 def TEST_INFO_MESSAGE(message, context=None):
     """
-    Loguje wiadomość informacyjną z podanym komunikatem.
-    Jeśli kontekst (context) jest dostępny, używa frameworka do logowania.
-    Jeśli brak kontekstu, przechowuje symbol do późniejszego wykonania.
+    Logs an informational message.
+    If the context is available, it logs via the framework.
+    Otherwise, it returns a symbolic representation for deferred execution.
     """
     ctx = _get_context(context)
     if ctx["framework"]:
-        ctx["framework"].report_test_info(
-            ctx["group_name"],
-            ctx["test_name"],
-            message
-        )
+        _report_info(ctx, message)
     else:
         return ("TEST_INFO_MESSAGE", message)
 
+
 def TEST_ASSERT_EQUAL(expected, actual, context=None):
     """
-    Symboliczna asercja sprawdzająca równość.
-    :param actual: Aktualna wartość.
-    :param expected: Oczekiwana wartość.
-    :param context: (Opcjonalny) Słownik zawierający framework, grupę i nazwę testu.
+    Symbolic assertion that checks equality.
+    :param expected: The expected value.
+    :param actual: The actual value.
+    :param context: (Optional) A dict containing the framework, group and test name.
     """
     ctx = _get_context(context)
     if ctx["framework"]:
         if expected != actual:
-            ctx["framework"].report_test_result(
-                ctx["group_name"],
-                ctx["test_name"],
-                False,
-                f"Assertion failed! Expected = {expected}, actual = {actual}"
-            )
+            _report_result(ctx, False, f"Assertion failed! Expected = {expected}, actual = {actual}")
         else:
-            ctx["framework"].report_test_result(ctx["group_name"], ctx["test_name"], True)
+            _report_result(ctx, True)
     else:
         return ("TEST_ASSERT_EQUAL", actual, expected)
 
+
 def TEST_ASSERT_TRUE(condition, context=None):
     """
-    Symboliczna asercja sprawdzająca, czy warunek jest prawdziwy.
-    :param condition: Warunek do sprawdzenia.
-    :param context: (Opcjonalny) Słownik zawierający framework, grupę i nazwę testu.
+    Symbolic assertion that checks if a condition is true.
+    :param condition: The condition to evaluate.
+    :param context: (Optional) A dict containing the framework, group and test name.
     """
     ctx = _get_context(context)
     if ctx["framework"]:
         if not condition:
-            ctx["framework"].report_test_result(
-                ctx["group_name"],
-                ctx["test_name"],
-                False,
-                "Assertion failed: condition is not true"
-            )
+            _report_result(ctx, False, "Assertion failed: condition is not true")
         else:
-            ctx["framework"].report_test_result(ctx["group_name"], ctx["test_name"], True)
+            _report_result(ctx, True)
     else:
         return ("TEST_ASSERT_TRUE", condition)
 
+
 def TEST_ASSERT_IN(item, collection, context=None):
     """
-    Symboliczna asercja sprawdzająca, czy element znajduje się w kolekcji.
-    :param item: Element do sprawdzenia.
-    :param collection: Kolekcja, w której szukamy elementu.
-    :param context: (Opcjonalny) Słownik zawierający framework, grupę i nazwę testu.
+    Symbolic assertion that checks if an item is in a collection.
+    :param item: The item to look for.
+    :param collection: The collection to search.
+    :param context: (Optional) A dict containing the framework, group and test name.
     """
     ctx = _get_context(context)
     if ctx["framework"]:
         if item not in collection:
-            ctx["framework"].report_test_result(
-                ctx["group_name"],
-                ctx["test_name"],
-                False,
-                f"Assertion failed: {item} not in {collection}"
-            )
+            _report_result(ctx, False, f"Assertion failed: {item} not in {collection}")
         else:
-            ctx["framework"].report_test_result(ctx["group_name"], ctx["test_name"], True)
+            _report_result(ctx, True)
     else:
         return ("TEST_ASSERT_IN", item, collection)

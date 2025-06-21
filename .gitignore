@@ -1,5 +1,6 @@
 local_notes
 report/
+html_report/
 __pycache__/
 *.pyc
 *.log

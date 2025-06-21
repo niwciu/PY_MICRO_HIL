@@ -8,7 +8,7 @@ def teardown_group():
 
 def test_sample_1():
     # TEST_INFO_MESSAGE("Running Sample Test 1")
-    TEST_ASSERT_EQUAL(2,2)
+    TEST_ASSERT_EQUAL(2,3)
 
 def test_sample_2():
     # TEST_INFO_MESSAGE("Running Sample Test 2")

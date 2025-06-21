@@ -31,6 +31,34 @@ def load_test_groups(test_directory):
     return test_groups
 
 
+def resolve_html_path(arg_value):
+    """
+    Determines the full path to the HTML report file:
+    - If arg_value ends with .html, use it directly as the output file
+    - If arg_value is a directory, append /html_report/report.html
+    - If arg_value is None, use ./html_report/report.html
+    """
+    if not arg_value:
+        output_dir = Path.cwd() / "html_report"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        return str(output_dir / "report.html")
+
+    path = Path(arg_value).resolve()
+
+    if path.suffix == ".html":
+        # Użytkownik podał pełną ścieżkę do pliku
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return str(path)
+
+    # Użytkownik podał ścieżkę do folderu
+    output_dir = path / "html_report"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return str(output_dir / "report.html")
+
+
+
+
+
 def main():
     # Parse arguments for log and HTML report
     log_file = None
@@ -38,9 +66,12 @@ def main():
     if '--log' in sys.argv:
         log_index = sys.argv.index('--log')
         log_file = sys.argv[log_index + 1] if log_index + 1 < len(sys.argv) else None
+
     if '--html' in sys.argv:
         html_index = sys.argv.index('--html')
-        html_file = sys.argv[html_index + 1] if html_index + 1 < len(sys.argv) else None
+        next_index = html_index + 1
+        html_arg = sys.argv[next_index] if next_index < len(sys.argv) and not sys.argv[next_index].startswith("--") else None
+        html_file = resolve_html_path(html_arg)
 
     # Initialize logger
     logger = Logger(log_file=log_file, html_file=html_file)
@@ -71,15 +102,8 @@ def main():
         # Run all tests
         test_framework.run_all_tests()
     except SystemExit as e:
-        # Handle test failures or early exits
-        if html_file:
-            logger.generate_html_report(test_groups=test_groups)
-        logger.log(f"[INFO] Test execution stopped with exit code {e.code}.")
+        # Exit code already handled inside run_all_tests()
         sys.exit(e.code)
-
-    # Generate HTML report if requested and not yet generated
-    if html_file and not logger.html_file:
-        logger.generate_html_report(test_groups=test_groups)
 
 
 if __name__ == "__main__":

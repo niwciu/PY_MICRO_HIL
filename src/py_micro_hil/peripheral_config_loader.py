@@ -42,6 +42,9 @@ def load_peripheral_configuration(yaml_file=None, logger=None):
         log_or_raise("Peripheral configuration file is empty – using default empty configuration.", warning=True)
         config = {}
 
+    if not isinstance(config, dict):
+        log_or_raise("YAML content must be a dictionary at the top level.", warning=False)
+
     peripherals_cfg = config.get("peripherals") or {}
     protocols_cfg = config.get("protocols") or {}
 
@@ -141,36 +144,32 @@ def load_peripheral_configuration(yaml_file=None, logger=None):
         else:
             log_or_raise("Invalid configuration for SPI – expected dictionary.", warning=True)
 
+    # --- Optional peripherals (commented) ---
+
     # # CAN
-    # if 'can' in config.get('peripherals', {}):
-    #     can_config = config['peripherals']['can']
+    # if 'can' in peripherals_cfg:
+    #     can_config = peripherals_cfg['can']
     #     if isinstance(can_config, dict):
-    #         can = RPiCAN(can_config['interface'])
-    #         peripherals.append(can)
+    #         peripherals.append(RPiCAN(can_config['interface']))
     #     else:
-    #         raise ValueError("Invalid configuration for CAN, expected dictionary with key 'interface'.")
+    #         log_or_raise("Invalid configuration for CAN – expected dictionary.", warning=True)
 
     # # ADC
-    # if 'adc' in config.get('peripherals', {}):
-    #     adc_config = config['peripherals']['adc']
+    # if 'adc' in peripherals_cfg:
+    #     adc_config = peripherals_cfg['adc']
     #     if isinstance(adc_config, dict):
-    #         adc = RPiADC(adc_config['channel'])
-    #         peripherals.append(adc)
+    #         peripherals.append(RPiADC(adc_config['channel']))
     #     else:
-    #         raise ValueError("Invalid configuration for ADC, expected dictionary with key 'channel'.")
+    #         log_or_raise("Invalid configuration for ADC – expected dictionary.", warning=True)
 
     # # EEPROM
-    # if 'eeprom' in config.get('peripherals', {}):
-    #     eeprom_config = config['peripherals']['eeprom']
+    # if 'eeprom' in peripherals_cfg:
+    #     eeprom_config = peripherals_cfg['eeprom']
     #     if isinstance(eeprom_config, dict):
-    #         eeprom = RPiHATEEPROM(eeprom_config['bus'], eeprom_config['address'])
-    #         peripherals.append(eeprom)
+    #         peripherals.append(RPiHATEEPROM(eeprom_config['bus'], eeprom_config['address']))
     #     else:
-    #         raise ValueError("Invalid configuration for EEPROM, expected dictionary with keys 'bus' and 'address'.")
+    #         log_or_raise("Invalid configuration for EEPROM – expected dictionary.", warning=True)
 
-
-
-    # Return final dictionaries for peripherals and protocols
     return {
         "peripherals": peripherals,
         "protocols": protocols
