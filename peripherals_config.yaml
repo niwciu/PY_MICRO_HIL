@@ -7,18 +7,18 @@ protocols:
     timeout: 2
 
 peripherals:
-  # gpio:
-  #   - pin: 17
-  #     mode: out
-  #     initial: low
-  #   - pin: 18
-  #     mode: in
+  gpio:
+    - pin: 17
+      mode: out
+      initial: low
+    - pin: 18
+      mode: in
   # pwm:
   #   - pin: 12
   #     frequency: 1000
-  uart:
-    port: /dev/serial0
-    baudrate: 9600
+  # uart:
+  #   port: /dev/serial0
+  #   baudrate: 9600
   # i2c:
   #   bus: 1
   #   frequency: 100000

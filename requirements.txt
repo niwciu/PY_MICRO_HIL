@@ -1,8 +1,0 @@
-RPi.GPIO
-termcolor
-pymodbus>=2.5.0
-pyserial
-smbus2
-spidev
-can
-pyyaml>=5.4.1

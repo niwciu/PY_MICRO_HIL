@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "py_micro_hil"
+version = "0.1.0"
+description = "Python-based HIL test framework"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+  { name = "Twoje Imię", email = "twojemail@example.com" }
+]
+requires-python = ">=3.8"
+
+dependencies = [
+  "PyYAML>=5.4.1",
+  "rich>=12.0",
+  "RPi.GPIO",
+  "termcolor",
+  "pymodbus>=2.5.0",
+  "pyserial",
+  "smbus2",
+  "spidev",
+  "can",
+  "jinja2"
+]
+
+[project.scripts]
+hiltest = "py_micro_hil.cli:main"
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "mypy",
+  "flake8",
+  "black",
+  "isort",
+  "coverage"
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+"py_micro_hil" = ["templates/*.html"]

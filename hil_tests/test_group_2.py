@@ -1,4 +1,4 @@
-from core.assertions import *
+from py_micro_hil.assertions import *
 
 def setup_group():
     TEST_INFO_MESSAGE("Setting up Group 2")

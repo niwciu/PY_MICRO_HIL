@@ -1,7 +1,7 @@
 import os
 import inspect
-from core.test_framework import TestGroup, Test
-from core.assertions import set_test_context, clear_test_context
+from py_micro_hil.test_framework import TestGroup, Test
+from py_micro_hil.assertions import set_test_context, clear_test_context
 
 
 def wrap_group_function(func, group_name: str, label: str):

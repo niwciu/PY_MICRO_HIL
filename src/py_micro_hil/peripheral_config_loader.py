@@ -1,6 +1,6 @@
 import yaml
-from core.RPiPeripherals import RPiGPIO, RPiPWM, RPiUART, RPiI2C, RPiSPI, RPi1Wire, RPiADC, RPiCAN, RPiHardwarePWM
-from core.protocols import ModbusRTU
+from py_micro_hil.RPiPeripherals import RPiGPIO, RPiPWM, RPiUART, RPiI2C, RPiSPI, RPi1Wire, RPiADC, RPiCAN, RPiHardwarePWM
+from py_micro_hil.protocols import ModbusRTU
 import RPi.GPIO as GPIO
 
 def load_peripheral_configuration(yaml_file='peripherals_config.yaml'):

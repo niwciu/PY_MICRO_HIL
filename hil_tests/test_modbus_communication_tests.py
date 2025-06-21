@@ -1,11 +1,11 @@
-from core.assertions import *
-from core.framework_API import *
+from py_micro_hil.assertions import *
+from py_micro_hil.framework_API import *
 
 def test_modbus_read_test():
     try:
         # Pobranie zasobu ModbusTRU z menedżera
         ModBUS = get_ModBus_peripheral()
-        UART = get_RPiUART_peripheral()
+        # UART = get_RPiUART_peripheral()
 
         # Korzystanie z zasobu
         registers = ModBUS.read_holding_registers(slave_address=0x01, address=0x00, count=1)

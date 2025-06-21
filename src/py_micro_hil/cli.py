@@ -1,12 +1,15 @@
 import sys
 import os
 import importlib.util
-from core.test_framework import TestFramework
-from core.logger import Logger
-from core.peripheral_manager import PeripheralManager
-from core.peripheral_config_loader import load_peripheral_configuration
-from core.test_group_factory import create_test_group_from_module
+from pathlib import Path
+
+from py_micro_hil.test_framework import TestFramework
+from py_micro_hil.logger import Logger
+from py_micro_hil.peripheral_manager import PeripheralManager
+from py_micro_hil.peripheral_config_loader import load_peripheral_configuration
+from py_micro_hil.test_group_factory import create_test_group_from_module
 import RPi.GPIO as GPIO
+
 
 def load_test_groups(test_directory):
     """
@@ -26,6 +29,7 @@ def load_test_groups(test_directory):
                 group = create_test_group_from_module(module)
                 test_groups.append(group)
     return test_groups
+
 
 def main():
     # Parse arguments for log and HTML report
@@ -49,8 +53,13 @@ def main():
     # Initialize TestFramework
     test_framework = TestFramework(peripheral_manager, logger)
 
+    # Locate test directory
+    test_directory = Path.cwd() / "hil_tests"
+    if not test_directory.exists():
+        print(f"❌ Test directory '{test_directory}' does not exist.")
+        sys.exit(1)
+
     # Load test groups dynamically
-    test_directory = os.path.join(os.path.dirname(__file__), 'tests')
     test_groups = load_test_groups(test_directory)
     print(f"Discovered test groups: {[group.name for group in test_groups]}")
 
@@ -64,7 +73,6 @@ def main():
     except SystemExit as e:
         # Handle test failures or early exits
         if html_file:
-            # Generate HTML report with test groups
             logger.generate_html_report(test_groups=test_groups)
         logger.log(f"[INFO] Test execution stopped with exit code {e.code}.")
         sys.exit(e.code)
@@ -72,6 +80,7 @@ def main():
     # Generate HTML report if requested and not yet generated
     if html_file and not logger.html_file:
         logger.generate_html_report(test_groups=test_groups)
+
 
 if __name__ == "__main__":
     main()

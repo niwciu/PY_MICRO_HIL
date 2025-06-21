@@ -1,6 +1,6 @@
-from core.assertions import _current_framework
-from core.RPiPeripherals import RPiUART_API , RPiGPIO_API, RPiPWM_API, RPiI2C_API, RPiSPI_API, RPi1Wire_API, RPiADC_API, RPiCAN_API, RPiHardwarePWM_API
-from core.protocols import ModbusRTU_API
+from py_micro_hil.assertions import _current_framework
+from py_micro_hil.RPiPeripherals import RPiUART_API , RPiGPIO_API, RPiPWM_API, RPiI2C_API, RPiSPI_API, RPi1Wire_API, RPiADC_API, RPiCAN_API, RPiHardwarePWM_API
+from py_micro_hil.protocols import ModbusRTU_API
 def _get_framework():
     framework = _current_framework.get()
     if not framework:

@@ -1,6 +1,6 @@
 # group3_tests.py
-from core.assertions import *
-from core.framework_API import *
+from py_micro_hil.assertions import *
+from py_micro_hil.framework_API import *
 
 def setup_group():
     TEST_INFO_MESSAGE("Setting up Group3")

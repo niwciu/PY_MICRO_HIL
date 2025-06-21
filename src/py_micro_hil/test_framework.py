@@ -1,4 +1,4 @@
-from core.logger import Logger
+from py_micro_hil.logger import Logger
 from abc import ABC, abstractmethod
 import sys
 

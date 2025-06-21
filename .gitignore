@@ -1,3 +1,11 @@
 local_notes
-__pycache__/
 report/
+__pycache__/
+*.pyc
+*.log
+dist/
+build/
+*.egg-info/
+.venv/
+logs/
+.coverage
