@@ -1,68 +1,68 @@
 from pymodbus.client import ModbusSerialClient as ModbusClient
 from abc import ABC, abstractmethod
 
+
 class ModbusRTU_API(ABC):
     @abstractmethod
     def read_holding_registers(self, slave_address, address, count):
         """
-        Odczytuje rejestry holding z urządzenia Modbus RTU.
+        Reads holding registers from a Modbus RTU device.
         """
         pass
 
     @abstractmethod
     def write_single_register(self, slave_address, address, value):
         """
-        Zapisuje pojedynczy rejestr w urządzeniu Modbus RTU.
+        Writes a single register to a Modbus RTU device.
         """
         pass
 
     @abstractmethod
     def write_multiple_registers(self, slave_address, address, values):
         """
-        Zapisuje wiele rejestrów w urządzeniu Modbus RTU.
+        Writes multiple registers to a Modbus RTU device.
         """
         pass
 
     @abstractmethod
     def read_coils(self, slave_address, address, count):
         """
-        Odczytuje status cewek (coils) - wartości typu bool.
+        Reads coil statuses (boolean values).
         """
         pass
 
     @abstractmethod
     def read_discrete_inputs(self, slave_address, address, count):
         """
-        Odczytuje dyskretne wejścia (read-only bool).
+        Reads discrete inputs (read-only boolean values).
         """
         pass
 
     @abstractmethod
     def read_input_registers(self, slave_address, address, count):
         """
-        Odczytuje rejestry wejściowe (input registers).
+        Reads input registers.
         """
         pass
 
     @abstractmethod
     def write_single_coil(self, slave_address, address, value):
         """
-        Zapisuje pojedynczą cewkę (True/False).
+        Writes a single coil (True/False).
         """
         pass
 
     @abstractmethod
     def write_multiple_coils(self, slave_address, address, values):
         """
-        Zapisuje wiele cewek.
+        Writes multiple coils.
         """
         pass
-
 
     @abstractmethod
     def get_initialized_params(self):
         """
-        Zwraca parametry konfiguracji klienta.
+        Returns the configuration parameters of the client.
         """
         pass
 
@@ -70,12 +70,12 @@ class ModbusRTU_API(ABC):
 class ModbusRTU(ModbusRTU_API):
     def __init__(self, port='/dev/ttyUSB0', baudrate=115200, stopbits=1, parity='N', timeout=1):
         """
-        Klasa do obsługi Modbus RTU.
-        :param port: Port szeregowy do komunikacji.
-        :param baudrate: Szybkość transmisji w baudach.
-        :param stopbits: Liczba bitów stopu.
-        :param parity: Parzystość ('N', 'E', 'O').
-        :param timeout: Czas oczekiwania na odpowiedź w sekundach.
+        Class for handling Modbus RTU communication.
+        :param port: Serial port for communication.
+        :param baudrate: Baud rate.
+        :param stopbits: Number of stop bits.
+        :param parity: Parity ('N', 'E', 'O').
+        :param timeout: Response timeout in seconds.
         """
         self.port = port
         self.baudrate = baudrate
@@ -86,13 +86,13 @@ class ModbusRTU(ModbusRTU_API):
 
     def get_required_resources(self):
         """
-        Zwraca zasoby wymagane przez Modbus RTU (port szeregowy).
+        Returns the required system resources (serial port).
         """
         return {"ports": [self.port]}
 
     def initialize(self):
         """
-        Inicjalizuje klienta Modbus RTU.
+        Initializes the Modbus RTU client.
         """
         self.client = ModbusClient(
             port=self.port,
@@ -106,14 +106,14 @@ class ModbusRTU(ModbusRTU_API):
 
     def release(self):
         """
-        Zamyka połączenie Modbus RTU.
+        Closes the Modbus RTU connection.
         """
-        if self.client:
+        if self.client and self.client.connected:
             self.client.close()
 
     def get_initialized_params(self):
         """
-        Zwraca parametry, z którymi zostały zainicjalizowane porty Modbus RTU.
+        Returns the parameters used for initializing the Modbus RTU client.
         """
         return {
             "port": self.port,
@@ -124,107 +124,67 @@ class ModbusRTU(ModbusRTU_API):
         }
 
     def read_holding_registers(self, slave_address, address, count):
-        """
-        Odczytuje rejestry holding z urządzenia Modbus RTU.
-        :param slave_address: Adres urządzenia slave.
-        :param address: Adres początkowego rejestru.
-        :param count: Liczba rejestrów do odczytania.
-        :return: Lista wartości rejestrów.
-        """
+        if not self.client:
+            raise RuntimeError("Modbus client not initialized.")
         response = self.client.read_holding_registers(address, count, slave=slave_address)
-        if response.isError():
-            raise ValueError(f"Modbus error: {response}")
+        if not response or response.isError():
+            raise IOError(f"[Modbus] Error response received: {response}")
         return response.registers
 
     def write_single_register(self, slave_address, address, value):
-        """
-        Zapisuje pojedynczy rejestr w urządzeniu Modbus RTU.
-        :param slave_address: Adres urządzenia slave.
-        :param address: Adres rejestru.
-        :param value: Wartość do zapisania.
-        :return: Odpowiedź z urządzenia.
-        """
+        if not self.client:
+            raise RuntimeError("Modbus client not initialized.")
         response = self.client.write_register(address, value, slave=slave_address)
-        if response.isError():
-            raise ValueError(f"Modbus error: {response}")
+        if not response or response.isError():
+            raise IOError(f"[Modbus] Error response received: {response}")
         return response
 
     def write_multiple_registers(self, slave_address, address, values):
-        """
-        Zapisuje wiele rejestrów w urządzeniu Modbus RTU.
-        :param slave_address: Adres urządzenia slave.
-        :param address: Adres początkowego rejestru.
-        :param values: Lista wartości do zapisania.
-        :return: Odpowiedź z urządzenia.
-        """
+        if not self.client:
+            raise RuntimeError("Modbus client not initialized.")
         response = self.client.write_registers(address, values, slave=slave_address)
-        if response.isError():
-            raise ValueError(f"Modbus error: {response}")
+        if not response or response.isError():
+            raise IOError(f"[Modbus] Error response received: {response}")
         return response
 
     def read_coils(self, slave_address, address, count):
-        """
-        Odczytuje status cewek (coils) - wartości typu bool.
-        :param slave_address: Adres urządzenia slave.
-        :param address: Adres początkowej cewki.
-        :param count: Liczba cewek do odczytania.
-        :return: Lista wartości bool.
-        """
+        if not self.client:
+            raise RuntimeError("Modbus client not initialized.")
         response = self.client.read_coils(address, count, slave=slave_address)
-        if response.isError():
-            raise ValueError(f"Modbus error: {response}")
+        if not response or response.isError():
+            raise IOError(f"[Modbus] Error response received: {response}")
         return response.bits
 
     def read_discrete_inputs(self, slave_address, address, count):
-        """
-        Odczytuje dyskretne wejścia (read-only bool).
-        :param slave_address: Adres urządzenia slave.
-        :param address: Adres początkowego wejścia.
-        :param count: Liczba wejść do odczytania.
-        :return: Lista wartości bool.
-        """
+        if not self.client:
+            raise RuntimeError("Modbus client not initialized.")
         response = self.client.read_discrete_inputs(address, count, slave=slave_address)
-        if response.isError():
-            raise ValueError(f"Modbus error: {response}")
+        if not response or response.isError():
+            raise IOError(f"[Modbus] Error response received: {response}")
         return response.bits
 
     def read_input_registers(self, slave_address, address, count):
-        """
-        Odczytuje rejestry wejściowe (input registers).
-        :param slave_address: Adres urządzenia slave.
-        :param address: Adres początkowego rejestru.
-        :param count: Liczba rejestrów do odczytania.
-        :return: Lista wartości rejestrów.
-        """
+        if not self.client:
+            raise RuntimeError("Modbus client not initialized.")
         response = self.client.read_input_registers(address, count, slave=slave_address)
-        if response.isError():
-            raise ValueError(f"Modbus error: {response}")
+        if not response or response.isError():
+            raise IOError(f"[Modbus] Error response received: {response}")
         return response.registers
 
     def write_single_coil(self, slave_address, address, value):
-        """
-        Zapisuje pojedynczą cewkę (True/False).
-        :param slave_address: Adres urządzenia slave.
-        :param address: Adres cewki.
-        :param value: Wartość bool do zapisania.
-        :return: Odpowiedź z urządzenia.
-        """
+        if not self.client:
+            raise RuntimeError("Modbus client not initialized.")
         response = self.client.write_coil(address, value, slave=slave_address)
-        if response.isError():
-            raise ValueError(f"Modbus error: {response}")
+        if not response or response.isError():
+            raise IOError(f"[Modbus] Error response received: {response}")
         return response
 
     def write_multiple_coils(self, slave_address, address, values):
-        """
-        Zapisuje wiele cewek.
-        :param slave_address: Adres urządzenia slave.
-        :param address: Adres początkowej cewki.
-        :param values: Lista wartości bool do zapisania.
-        :return: Odpowiedź z urządzenia.
-        """
+        if not self.client:
+            raise RuntimeError("Modbus client not initialized.")
         response = self.client.write_coils(address, values, slave=slave_address)
-        if response.isError():
-            raise ValueError(f"Modbus error: {response}")
+        if not response or response.isError():
+            raise IOError(f"[Modbus] Error response received: {response}")
         return response
 
 # import can
