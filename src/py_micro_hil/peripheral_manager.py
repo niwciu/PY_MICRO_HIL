@@ -67,35 +67,41 @@ class PeripheralManager:
                     device.disable_logging()
 
     def initialize_all(self):
-        """
-        Initializes all devices in the 'protocols' and 'peripherals' groups.
-        """
         for group, devices in self.devices.items():
             self.logger.log(f"\nInitializing {group}...", to_console=True)
             for device in devices:
+                device_name = type(device).__name__
                 try:
-                    device_name = type(device).__name__
+                    # rezerwacja pinów/portów...
                     resources = device.get_required_resources()
-                    pins = resources.get("pins", [])
-                    ports = resources.get("ports", [])
+                    self._reserve_pins(resources.get("pins", []), device_name)
+                    self._reserve_ports(resources.get("ports", []), device_name)
 
-                    self._reserve_pins(pins, device_name)
-                    self._reserve_ports(ports, device_name)
-
+                    # inicjalizacja może rzucić RuntimeError
                     device.initialize()
+
                     self._log_resources_initialized(resources, device, device_name)
                     self.initialized_devices.append(device)
-
                     self.logger.log(f"[INFO] {device_name} initialized successfully.", to_console=True)
+
                 except RuntimeError as e:
+                    if getattr(device, "optional", False):
+                        # tylko ostrzeżenie i kontynuacja
+                        self.logger.log(f"[WARNING] Nie zainicjalizowano {device_name}: {e}", to_console=True)
+                        continue
+                    # krytyczny błąd — rollback i exit
+                    self.logger.log(f"[ERROR] Krytyczny błąd przy inicjalizacji {device_name}: {e}", to_console=True)
                     self.release_all()
-                    self.logger.log(str(e), to_console=True)
                     sys.exit(1)
+
                 except Exception as e:
-                    self.logger.log(f"[ERROR] Unexpected error: {str(e)}", to_console=True)
+                    # pozostałe wyjątki traktujemy jako fatal
+                    self.logger.log(f"[ERROR] Nieoczekiwany błąd: {e}", to_console=True)
                     self.release_all()
                     sys.exit(1)
+
             self.logger.log(f"All {group} initialized.", to_console=True)
+
 
     def release_all(self):
         """

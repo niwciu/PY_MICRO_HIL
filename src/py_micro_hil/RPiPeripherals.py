@@ -1,14 +1,15 @@
 import logging
-import subprocess
-import glob
-import time
+# import subprocess
+# import glob
+# import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union
 
 import RPi.GPIO as GPIO
 import spidev
 import serial
-import can
+# import can
+# import os
 from smbus2 import SMBus
 
 
@@ -31,11 +32,13 @@ class LoggingMixin:
         self._logging_enabled = False
 
     def _log(self, message: str, level: int = logging.INFO) -> None:
-        """Internal helper to log a message if logging is enabled."""
+        """
+        Internal helper to log a message if logging is enabled.
+        Accepts an optional `level` for compatibility, but always logs at INFO.
+        """
         if self._logging_enabled and self._logger:
-            self._logger.log(level, message)
-
-
+            # nasz Logger.log(msg, to_console=False, to_log_file=False)
+            self._logger.log(message)
 class ResourceMixin:
     """
     Mixin enabling use as a context manager: calls initialize on enter,
@@ -71,8 +74,6 @@ class RPiGPIO_API(ABC):
     @abstractmethod
     def disable_logging(self) -> None:
         pass
-
-
 class RPiGPIO(LoggingMixin, ResourceMixin, RPiGPIO_API):
     """
     Implementation of GPIO digital I/O using RPi.GPIO.
@@ -145,8 +146,6 @@ class RPiPWM_API(ABC):
     @abstractmethod
     def disable_logging(self) -> None:
         pass
-
-
 class RPiPWM(LoggingMixin, ResourceMixin, RPiPWM_API):
     """
     Software PWM on a GPIO pin via RPi.GPIO.PWM.
@@ -211,8 +210,6 @@ class RPiUART_API(ABC):
 
     @abstractmethod
     def release(self) -> None: pass
-
-
 class RPiUART(LoggingMixin, ResourceMixin, RPiUART_API):
     """
     UART interface using pyserial on Raspberry Pi.
@@ -247,6 +244,18 @@ class RPiUART(LoggingMixin, ResourceMixin, RPiUART_API):
         )
         self._log(f"Initialized UART on {self.port} at {self.baudrate}bps")
 
+    def get_initialized_params(self) -> Dict[str, Any]:
+        """
+        Return the UART configuration parameters after initialization.
+        """
+        return {
+            "port": self.port,
+            "baudrate": self.baudrate,
+            "timeout": self.timeout,
+            "parity": self.parity,
+            "stopbits": self.stopbits
+        }
+
     def send(self, data: Union[str, bytes]) -> None:
         """Send bytes or string over UART."""
         if isinstance(data, str):
@@ -273,6 +282,7 @@ class RPiUART(LoggingMixin, ResourceMixin, RPiUART_API):
             self._log(f"Closed UART on {self.port}")
 
 
+
 # --- I2C ---
 class RPiI2C_API(ABC):
     """Abstract interface for I2C communication."""
@@ -294,7 +304,6 @@ class RPiI2C_API(ABC):
     def enable_logging(self) -> None: pass
     @abstractmethod
     def disable_logging(self) -> None: pass
-
 class RPiI2C(LoggingMixin, ResourceMixin, RPiI2C_API):
     """
     I2C interface using smbus2.
@@ -319,7 +328,16 @@ class RPiI2C(LoggingMixin, ResourceMixin, RPiI2C_API):
         """Open I2C bus."""
         self.bus = SMBus(self.bus_number)
         self._log(f"Initialized I2C bus {self.bus_number} at {self.frequency}Hz")
-
+    
+    def get_initialized_params(self) -> Dict[str, Any]:
+        """
+        Return the I2C configuration parameters after initialization.
+        """
+        return {
+            "bus_number": self.bus_number,
+            "frequency": self.frequency
+        }
+    
     def scan(self) -> List[int]:
         """Scan for I2C devices."""
         devices: List[int] = []
@@ -388,7 +406,6 @@ class RPiSPI_API(ABC):
     def enable_logging(self) -> None: pass
     @abstractmethod
     def disable_logging(self) -> None: pass
-
 class RPiSPI(LoggingMixin, ResourceMixin, RPiSPI_API):
     """
     SPI interface using spidev.
@@ -426,6 +443,20 @@ class RPiSPI(LoggingMixin, ResourceMixin, RPiSPI_API):
         self.spi.lsbfirst = self.lsbfirst
         self._log(f"Initialized SPI /dev/spidev{self.bus}.{self.device} @ {self.max_speed_hz}Hz")
 
+    def get_initialized_params(self) -> Dict[str, Any]:
+        """
+        Return the SPI configuration parameters after initialization.
+        """
+        return {
+            "bus": self.bus,
+            "device": self.device,
+            "max_speed_hz": self.max_speed_hz,
+            "mode": self.mode,
+            "bits_per_word": self.bits_per_word,
+            "cs_high": self.cs_high,
+            "lsbfirst": self.lsbfirst
+        }
+    
     def transfer(self, data: List[int]) -> List[int]:
         """Full-duplex SPI transfer (list of ints)."""
         resp = self.spi.xfer(data)
@@ -462,195 +493,246 @@ class RPiSPI(LoggingMixin, ResourceMixin, RPiSPI_API):
 
 
 # --- 1-Wire ---
-class RPi1Wire_API(ABC):
-    """Abstract interface for 1-Wire bus via sysfs."""
-    @abstractmethod
-    def list_devices(self) -> List[str]: pass
-    @abstractmethod
-    def read_device(self, device_id: str, filename: str = 'w1_slave') -> str: pass
-    @abstractmethod
-    def read_temperature(self, device_id: Optional[str] = None) -> float: pass
-    @abstractmethod
-    def reset_bus(self) -> None: pass
-    @abstractmethod
-    def release(self) -> None: pass
-    @abstractmethod
-    def enable_logging(self) -> None: pass
-    @abstractmethod
-    def disable_logging(self) -> None: pass
+# class RPi1Wire_API(ABC):
+#     """Abstract interface for 1-Wire bus via sysfs."""
+#     @abstractmethod
+#     def list_devices(self) -> List[str]: pass
+#     @abstractmethod
+#     def read_device(self, device_id: str, filename: str = 'w1_slave') -> str: pass
+#     @abstractmethod
+#     def read_temperature(self, device_id: Optional[str] = None) -> float: pass
+#     @abstractmethod
+#     def reset_bus(self) -> None: pass
+#     @abstractmethod
+#     def release(self) -> None: pass
+#     @abstractmethod
+#     def enable_logging(self) -> None: pass
+#     @abstractmethod
+#     def disable_logging(self) -> None: pass
+# class RPi1Wire(LoggingMixin, ResourceMixin, RPi1Wire_API):
+#     """
+#     1-Wire interface via Linux sysfs (e.g., DS18B20 sensors).
+#     If kernel modules are not present, initialization will raise RuntimeError,
+#     but this device is optional in our framework.
+#     """
+#     optional = True
+#     def __init__(self,
+#                  pin: int,
+#                  logger: Optional[logging.Logger] = None,
+#                  logging_enabled: bool = True) -> None:
+#         super().__init__(logger, logging_enabled)
+#         self.pin = pin
+#         self.device_files: List[str] = []
 
-class RPi1Wire(LoggingMixin, ResourceMixin, RPi1Wire_API):
-    """
-    1-Wire interface via Linux sysfs (e.g., DS18B20 sensors).
-    """
-    def __init__(self,
-                 pin: int,
-                 logger: Optional[logging.Logger] = None,
-                 logging_enabled: bool = True) -> None:
-        super().__init__(logger, logging_enabled)
-        self.pin = pin
-        self.device_files: List[str] = []
+#     def get_required_resources(self) -> Dict[str, List[int]]:
+#         return {"pins": [self.pin]}
 
-    def get_required_resources(self) -> Dict[str, List[int]]:
-        return {"pins": [self.pin]}
+#     def initialize(self) -> None:
+#             """Scan for 1-Wire devices under /sys/bus/w1/devices/ without calling modprobe."""
+#             base = '/sys/bus/w1/devices/'
 
-    def initialize(self) -> None:
-        """Load kernel modules and scan for devices."""
-        GPIO.setmode(GPIO.BCM); GPIO.setup(self.pin, GPIO.IN)
-        subprocess.run(['modprobe','w1-gpio'], check=True)
-        subprocess.run(['modprobe','w1-therm'], check=True)
-        time.sleep(1)
-        base='/sys/bus/w1/devices/'
-        self.device_files=glob.glob(f"{base}28*" )
-        self._log(f"1-Wire found devices={self.device_files}")
+#             # Jeżeli nie ma katalogu, oznacza to, że one-wire nie jest włączony w kernelu
+#             if not os.path.isdir(base):
+#                 raise RuntimeError(
+#                     "1-Wire sysfs interface not found. "
+#                     "Upewnij się, że w kernelu włączono one-wire "
+#                     "(np. dodając 'dtoverlay=w1-gpio' do /boot/config.txt)."
+#                 )
 
-    def list_devices(self) -> List[str]:
-        """Return list of attached 1-Wire device IDs."""
-        ids=[]
-        for d in self.device_files:
-            ids.append(d.split('/')[-1])
-        self._log(f"1-Wire list_devices={ids}")
-        return ids
+#             # Skanujemy czujniki DS18B20 - katalogi zaczynające się od "28-"
+#             self.device_files = glob.glob(f"{base}28*")
 
-    def read_device(self, device_id: str, filename: str='w1_slave') -> str:
-        """Read raw contents of a 1-Wire device file."""
-        path=f"/sys/bus/w1/devices/{device_id}/{filename}"
-        with open(path,'r') as f: data=f.read()
-        self._log(f"1-Wire read {path}")
-        return data
+#             if not self.device_files:
+#                 # Nie wykryto żadnych sensorów
+#                 self._log(
+#                     "Brak urządzeń 1-Wire w sysfs. "
+#                     "Sprawdź okablowanie i konfigurację dtoverlay w /boot/config.txt.",
+#                     level=logging.WARNING
+#                 )
+#             else:
+#                 self._log(f"1-Wire devices found: {self.device_files}")
 
-    def read_temperature(self, device_id: Optional[str]=None) -> float:
-        """Parse temperature reading from DS18B20."""
-        if device_id is None: device_id=self.list_devices()[0]
-        raw=self.read_device(device_id)
-        lines=raw.splitlines()
-        if not lines[0].endswith('YES'): raise IOError('CRC check failed')
-        temp=int(lines[1].split('t=')[-1])/1000.0
-        self._log(f"1-Wire temp={temp}C for {device_id}")
-        return temp
+#     def get_initialized_params(self) -> Dict[str, Any]:
+#         """
+#         Return pin and list of discovered 1-Wire device IDs.
+#         """
+#         return {
+#             "pin": self.pin,
+#             "devices": [Path(d).name for d in self.device_files]
+#         }
+    
+#     def list_devices(self) -> List[str]:
+#         """Return list of attached 1-Wire device IDs."""
+#         ids=[]
+#         for d in self.device_files:
+#             ids.append(d.split('/')[-1])
+#         self._log(f"1-Wire list_devices={ids}")
+#         return ids
 
-    def reset_bus(self) -> None:
-        """Reload 1-Wire kernel modules."""
-        subprocess.run(['modprobe','-r','w1-gpio'],check=True)
-        subprocess.run(['modprobe','w1-gpio'],check=True)
-        self._log("1-Wire bus reset")
+#     def read_device(self, device_id: str, filename: str='w1_slave') -> str:
+#         """Read raw contents of a 1-Wire device file."""
+#         path=f"/sys/bus/w1/devices/{device_id}/{filename}"
+#         with open(path,'r') as f: data=f.read()
+#         self._log(f"1-Wire read {path}")
+#         return data
 
-    def release(self) -> None:
-        """Cleanup GPIO and unload modules."""
-        GPIO.cleanup(self.pin)
-        subprocess.run(['modprobe','-r','w1-gpio'],check=True)
-        subprocess.run(['modprobe','-r','w1-therm'],check=True)
-        self._log("1-Wire released")
+#     def read_temperature(self, device_id: Optional[str]=None) -> float:
+#         """Parse temperature reading from DS18B20."""
+#         if device_id is None: device_id=self.list_devices()[0]
+#         raw=self.read_device(device_id)
+#         lines=raw.splitlines()
+#         if not lines[0].endswith('YES'): raise IOError('CRC check failed')
+#         temp=int(lines[1].split('t=')[-1])/1000.0
+#         self._log(f"1-Wire temp={temp}C for {device_id}")
+#         return temp
 
+#     def reset_bus(self) -> None:
+#         """Reload 1-Wire kernel modules."""
+#         subprocess.run(['modprobe','-r','w1-gpio'],check=True)
+#         subprocess.run(['modprobe','w1-gpio'],check=True)
+#         self._log("1-Wire bus reset")
 
-# --- ADC (MCP3008) via SPI---
-class RPiADC_API(ABC):
-    """Abstract interface for ADC reading."""
-    @abstractmethod
-    def initialize(self) -> None: pass
-    @abstractmethod
-    def read(self) -> int: pass
-    @abstractmethod
-    def read_all_channels(self) -> List[int]: pass
-    @abstractmethod
-    def release(self) -> None: pass
-    @abstractmethod
-    def enable_logging(self) -> None: pass
-    @abstractmethod
-    def disable_logging(self) -> None: pass
-
-class RPiADC(LoggingMixin, ResourceMixin, RPiADC_API):
-    """
-    10-bit ADC (e.g., MCP3008) over SPI.
-    """
-    def __init__(self,
-                 channel: int=0,
-                 logger: Optional[logging.Logger]=None,
-                 logging_enabled: bool=True) -> None:
-        super().__init__(logger, logging_enabled)
-        if channel not in range(8): raise ValueError("Channel 0-7")
-        self.channel=channel
-        self.spi=spidev.SpiDev()
-
-    def initialize(self) -> None:
-        """Open SPI for ADC."""
-        self.spi.open(0,0)
-        self.spi.max_speed_hz=1350000
-        self._log(f"ADC initialized channel={self.channel}")
-
-    def read(self) -> int:
-        """Read single channel value (0-1023)."""
-        resp=self.spi.xfer2([1,(8+self.channel)<<4,0])
-        val=((resp[1]&3)<<8)|resp[2]
-        self._log(f"ADC read channel={self.channel}, value={val}")
-        return val
-
-    def read_all_channels(self) -> List[int]:
-        """Read all 8 channels."""
-        vals=[]
-        for ch in range(8):
-            resp=self.spi.xfer2([1,(8+ch)<<4,0])
-            vals.append(((resp[1]&3)<<8)|resp[2])
-        self._log(f"ADC all channels={vals}")
-        return vals
-
-    def release(self) -> None:
-        """Close SPI ADC."""
-        self.spi.close()
-        self._log("ADC released")
+#     def release(self) -> None:
+#         """Cleanup GPIO and unload modules."""
+#         GPIO.cleanup(self.pin)
+#         subprocess.run(['modprobe','-r','w1-gpio'],check=True)
+#         subprocess.run(['modprobe','-r','w1-therm'],check=True)
+#         self._log("1-Wire released")
 
 
-# --- CAN via SocketCAN ---
-class RPiCAN_API(ABC):
-    """Abstract interface for CAN bus messaging."""
-    @abstractmethod
-    def send_message(self, arbitration_id: int, data: Union[bytes,List[int]], extended_id: bool=False) -> None: pass
-    @abstractmethod
-    def receive_message(self, timeout: float=1.0) -> Optional[can.Message]: pass
-    @abstractmethod
-    def enable_logging(self) -> None: pass
-    @abstractmethod
-    def disable_logging(self) -> None: pass
+# # --- ADC (MCP3008) via SPI---
+# class RPiADC_API(ABC):
+#     """Abstract interface for ADC reading."""
+#     @abstractmethod
+#     def initialize(self) -> None: pass
+#     @abstractmethod
+#     def read(self) -> int: pass
+#     @abstractmethod
+#     def read_all_channels(self) -> List[int]: pass
+#     @abstractmethod
+#     def release(self) -> None: pass
+#     @abstractmethod
+#     def enable_logging(self) -> None: pass
+#     @abstractmethod
+#     def disable_logging(self) -> None: pass
 
-class RPiCAN(LoggingMixin, ResourceMixin, RPiCAN_API):
-    """
-    SocketCAN interface on Linux.
-    """
-    def __init__(self,
-                 interface: str='can0',
-                 bitrate: int=500000,
-                 logger: Optional[logging.Logger]=None,
-                 logging_enabled: bool=True) -> None:
-        super().__init__(logger, logging_enabled)
-        self.interface=interface
-        self.bitrate=bitrate
-        self.bus: Optional[can.Bus]=None
+# class RPiADC(LoggingMixin, ResourceMixin, RPiADC_API):
+#     """
+#     10-bit ADC (e.g., MCP3008) over SPI.
+#     """
+#     def __init__(self,
+#                  channel: int=0,
+#                  logger: Optional[logging.Logger]=None,
+#                  logging_enabled: bool=True) -> None:
+#         super().__init__(logger, logging_enabled)
+#         if channel not in range(8): raise ValueError("Channel 0-7")
+#         self.channel=channel
+#         self.spi=spidev.SpiDev()
 
-    def initialize(self) -> None:
-        """Set up CAN interface and open bus."""
-        subprocess.run(['sudo','ip','link','set',self.interface,'up','type','can',f'bitrate={self.bitrate}'],check=True)
-        self.bus=can.interface.Bus(channel=self.interface,bustype='socketcan')
-        self._log(f"CAN initialized {self.interface}@{self.bitrate}")
+#     def initialize(self) -> None:
+#         """Open SPI for ADC."""
+#         self.spi.open(0,0)
+#         self.spi.max_speed_hz=1350000
+#         self._log(f"ADC initialized channel={self.channel}")
+#     def get_required_resources(self) -> Dict[str, Any]:
+#         """
+#         Return the ADC channel and SPI speed that were initialized.
+#         """
+#         return {
+#             "channel": self.channel,
+#             "max_speed_hz": self.spi.max_speed_hz,
+#             "pins" : self
+#         }
+#     def read(self) -> int:
+#         """Read single channel value (0-1023)."""
+#         resp=self.spi.xfer2([1,(8+self.channel)<<4,0])
+#         val=((resp[1]&3)<<8)|resp[2]
+#         self._log(f"ADC read channel={self.channel}, value={val}")
+#         return val
 
-    def send_message(self, arbitration_id: int, data: Union[bytes,List[int]], extended_id: bool=False) -> None:
-        """Send a CAN message."""
-        if isinstance(data,list): data=bytes(data)
-        msg=can.Message(arbitration_id=arbitration_id,data=data,is_extended_id=extended_id)
-        self.bus.send(msg)
-        self._log(f"CAN send id={arbitration_id}, data={data}")
+#     def read_all_channels(self) -> List[int]:
+#         """Read all 8 channels."""
+#         vals=[]
+#         for ch in range(8):
+#             resp=self.spi.xfer2([1,(8+ch)<<4,0])
+#             vals.append(((resp[1]&3)<<8)|resp[2])
+#         self._log(f"ADC all channels={vals}")
+#         return vals
 
-    def receive_message(self, timeout: float=1.0) -> Optional[can.Message]:
-        """Receive a CAN message with timeout."""
-        msg=self.bus.recv(timeout)
-        self._log(f"CAN received {msg}")
-        return msg
+#     def release(self) -> None:
+#         """Close SPI ADC."""
+#         self.spi.close()
+#         self._log("ADC released")
 
-    def release(self) -> None:
-        """Shutdown CAN bus and lower interface."""
-        if self.bus:
-            self.bus.shutdown()
-        subprocess.run(['sudo','ip','link','set',self.interface,'down'],check=True)
-        self._log(f"CAN released {self.interface}")
+
+# # --- CAN via SocketCAN ---
+# class RPiCAN_API(ABC):
+#     """Abstract interface for CAN bus messaging."""
+#     @abstractmethod
+#     def send_message(self, arbitration_id: int, data: Union[bytes,List[int]], extended_id: bool=False) -> None: pass
+#     @abstractmethod
+#     def receive_message(self, timeout: float=1.0) -> Optional[can.Message]: pass
+#     @abstractmethod
+#     def enable_logging(self) -> None: pass
+#     @abstractmethod
+#     def disable_logging(self) -> None: pass
+
+# class RPiCAN(LoggingMixin, ResourceMixin, RPiCAN_API):
+#     """
+#     SocketCAN interface on Linux.
+#     """
+#     def __init__(self,
+#                  interface: str='can0',
+#                  bitrate: int=500000,
+#                  logger: Optional[logging.Logger]=None,
+#                  logging_enabled: bool=True) -> None:
+#         super().__init__(logger, logging_enabled)
+#         self.interface=interface
+#         self.bitrate=bitrate
+#         self.bus: Optional[can.Bus]=None
+#     def get_required_resources(self) -> Dict[str, List[Any]]:
+#         """
+#         Return required resources: no GPIO pins, but network interface name.
+#         """
+#         return {
+#             "pins": [],
+#             "interfaces": [self.interface]
+#         }
+
+#     def initialize(self) -> None:
+#         """Set up CAN interface and open bus."""
+#         subprocess.run(['sudo','ip','link','set',self.interface,'up','type','can',f'bitrate={self.bitrate}'],check=True)
+#         self.bus=can.interface.Bus(channel=self.interface,bustype='socketcan')
+#         self._log(f"CAN initialized {self.interface}@{self.bitrate}")
+
+#     def get_initialized_params(self) -> Dict[str, Any]:
+#         """
+#         Return the CAN interface and bitrate that were initialized.
+#         """
+#         return {
+#             "interface": self.interface,
+#             "bitrate": self.bitrate
+#         }
+
+#     def send_message(self, arbitration_id: int, data: Union[bytes,List[int]], extended_id: bool=False) -> None:
+#         """Send a CAN message."""
+#         if isinstance(data,list): data=bytes(data)
+#         msg=can.Message(arbitration_id=arbitration_id,data=data,is_extended_id=extended_id)
+#         self.bus.send(msg)
+#         self._log(f"CAN send id={arbitration_id}, data={data}")
+
+#     def receive_message(self, timeout: float=1.0) -> Optional[can.Message]:
+#         """Receive a CAN message with timeout."""
+#         msg=self.bus.recv(timeout)
+#         self._log(f"CAN received {msg}")
+#         return msg
+
+#     def release(self) -> None:
+#         """Shutdown CAN bus and lower interface."""
+#         if self.bus:
+#             self.bus.shutdown()
+#         subprocess.run(['sudo','ip','link','set',self.interface,'down'],check=True)
+#         self._log(f"CAN released {self.interface}")
 
 
 # --- Hardware PWM via GPIO hardware channels ---

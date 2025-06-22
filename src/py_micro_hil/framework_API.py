@@ -1,7 +1,7 @@
 from py_micro_hil.assertions import _current_framework
 from py_micro_hil.RPiPeripherals import (
     RPiUART_API, RPiGPIO_API, RPiPWM_API, RPiI2C_API,
-    RPiSPI_API, RPi1Wire_API, RPiADC_API, RPiCAN_API, RPiHardwarePWM_API
+    RPiSPI_API,  RPiHardwarePWM_API, #RPi1Wire_API, RPiADC_API, RPiCAN_API,
 )
 from py_micro_hil.protocols import ModbusRTU_API
 
@@ -43,19 +43,19 @@ def get_RPiSPI_peripheral() -> RPiSPI_API:
     return framework.peripheral_manager.get_device("peripherals", "RPiSPI")
 
 
-def get_RPiCAN_peripheral() -> RPiCAN_API:
-    framework = _get_framework()
-    return framework.peripheral_manager.get_device("peripherals", "RPiCAN")
+# def get_RPiCAN_peripheral() -> RPiCAN_API:
+#     framework = _get_framework()
+#     return framework.peripheral_manager.get_device("peripherals", "RPiCAN")
 
 
-def get_RPiADC_peripheral() -> RPiADC_API:
-    framework = _get_framework()
-    return framework.peripheral_manager.get_device("peripherals", "RPiADC")
+# def get_RPiADC_peripheral() -> RPiADC_API:
+#     framework = _get_framework()
+#     return framework.peripheral_manager.get_device("peripherals", "RPiADC")
 
 
-def get_RPi1Wire_peripheral() -> RPi1Wire_API:
-    framework = _get_framework()
-    return framework.peripheral_manager.get_device("peripherals", "RPi1Wire")
+# def get_RPi1Wire_peripheral() -> RPi1Wire_API:
+#     framework = _get_framework()
+#     return framework.peripheral_manager.get_device("peripherals", "RPi1Wire")
 
 
 def get_RPiHardwarePWM_peripheral() -> RPiHardwarePWM_API:
