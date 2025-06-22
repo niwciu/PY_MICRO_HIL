@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import sys
+from typing import Any, Dict, List, Optional, Union
 
 
 class Peripheral(ABC):
@@ -23,74 +24,72 @@ class Protocol(ABC):
 
 
 class PeripheralManager:
-    def __init__(self, devices, logger, logging_enabled=True):
+    def __init__(self, devices: Dict[str, List[Any]], logger: Any, logging_enabled: bool = True):
         """
-        Zarządza urządzeniami i rezerwacjami GPIO oraz portów.
-        :param devices: Słownik z urządzeniami grupowanymi jako "protocols" i "peripherals".
-        :param logger: Instancja klasy Logger do logowania.
-        :param logging_enabled: Czy domyślnie włączyć logowanie w urządzeniach.
+        Manages devices and reservations of GPIOs and ports.
+        :param devices: Dictionary with devices grouped as "protocols" and "peripherals".
+        :param logger: Instance of the Logger class for logging.
+        :param logging_enabled: Whether to enable logging by default for devices.
         """
         self.devices = devices
         self.logger = logger
         self.logging_enabled = logging_enabled
-        self.gpio_registry = {}  # Rejestracja zajętych pinów w formacie {pin: "DeviceName"}
-        self.port_registry = {}  # Rejestracja zajętych portów w formacie {port: "DeviceName"}
-        self.initialized_devices = []  # Lista urządzeń zainicjalizowanych do momentu błędu
+        self.gpio_registry: Dict[Any, str] = {}  # Registry of occupied pins in the format {pin: "DeviceName"}
+        self.port_registry: Dict[Any, str] = {}  # Registry of occupied ports in the format {port: "DeviceName"}
+        self.initialized_devices: List[Any] = []  # List of devices initialized up to the point of failure
 
-        # Przekazujemy logger i ustawiamy logowanie w urządzeniach
+        # Pass logger and set logging in devices
         for group in ['protocols', 'peripherals']:
-            if group in self.devices:
-                for device in self.devices[group]:
-                    if hasattr(device, 'logger'):
-                        device.logger = self.logger
-                    if hasattr(device, 'logging_enabled'):
-                        device.logging_enabled = self.logging_enabled
+            for device in self.devices.get(group, []):
+                if hasattr(device, 'logger'):
+                    device.logger = self.logger
+                if hasattr(device, 'logging_enabled'):
+                    device.logging_enabled = self.logging_enabled
 
     def enable_logging_all(self):
         """
-        Włącza logowanie we wszystkich urządzeniach.
+        Enables logging in all devices.
         """
         self.logging_enabled = True
         for group in ['protocols', 'peripherals']:
-            if group in self.devices:
-                for device in self.devices[group]:
-                    if hasattr(device, 'enable_logging'):
-                        device.enable_logging()
+            for device in self.devices.get(group, []):
+                if hasattr(device, 'enable_logging'):
+                    device.enable_logging()
 
     def disable_logging_all(self):
         """
-        Wyłącza logowanie we wszystkich urządzeniach.
+        Disables logging in all devices.
         """
         self.logging_enabled = False
         for group in ['protocols', 'peripherals']:
-            if group in self.devices:
-                for device in self.devices[group]:
-                    if hasattr(device, 'disable_logging'):
-                        device.disable_logging()
+            for device in self.devices.get(group, []):
+                if hasattr(device, 'disable_logging'):
+                    device.disable_logging()
 
     def initialize_all(self):
         """
-        Inicjalizuje wszystkie urządzenia w grupach 'protocols' i 'peripherals'.
+        Initializes all devices in the 'protocols' and 'peripherals' groups.
         """
         for group, devices in self.devices.items():
             self.logger.log(f"\nInitializing {group}...", to_console=True)
             for device in devices:
                 try:
+                    device_name = type(device).__name__
                     resources = device.get_required_resources()
                     pins = resources.get("pins", [])
                     ports = resources.get("ports", [])
 
-                    self._reserve_pins(pins, device.__class__.__name__)
-                    self._reserve_ports(ports, device.__class__.__name__)
+                    self._reserve_pins(pins, device_name)
+                    self._reserve_ports(ports, device_name)
 
                     device.initialize()
-                    self._log_resources_initialized(resources, device)
+                    self._log_resources_initialized(resources, device, device_name)
                     self.initialized_devices.append(device)
 
-                    self.logger.log(f"[INFO] {device.__class__.__name__} initialized successfully.", to_console=True)
+                    self.logger.log(f"[INFO] {device_name} initialized successfully.", to_console=True)
                 except RuntimeError as e:
                     self.release_all()
-                    self.logger.log(f"{str(e)}", to_console=True)
+                    self.logger.log(str(e), to_console=True)
                     sys.exit(1)
                 except Exception as e:
                     self.logger.log(f"[ERROR] Unexpected error: {str(e)}", to_console=True)
@@ -100,25 +99,26 @@ class PeripheralManager:
 
     def release_all(self):
         """
-        Zwalnia wszystkie urządzenia w grupach 'protocols' i 'peripherals'.
+        Releases all devices in the 'protocols' and 'peripherals' groups.
         """
         for device in self.initialized_devices:
             try:
+                self.logger.log(f"[INFO] Releasing {type(device).__name__}...", to_console=True)
                 device.release()
-                self.logger.log(f"[INFO] Released {device.__class__.__name__}.", to_console=True)
+                self.logger.log(f"[INFO] Released {type(device).__name__}.", to_console=True)
             except Exception as e:
-                self.logger.log(f"[ERROR] Error during releasing {device.__class__.__name__}: {str(e)}", to_console=True)
-        self.initialized_devices.clear()  # Czyszczenie listy zainicjalizowanych urządzeń
-        self.gpio_registry.clear()  # Czyszczenie rejestru pinów
-        self.port_registry.clear()  # Czyszczenie rejestru portów
+                self.logger.log(f"[ERROR] Error during releasing {type(device).__name__}: {str(e)}", to_console=True)
+        self.initialized_devices.clear()  # Clear the list of initialized devices
+        self.gpio_registry.clear()  # Clear the GPIO registry
+        self.port_registry.clear()  # Clear the port registry
         self.logger.log("[INFO] All resources released.", to_console=True)
 
-    def _reserve_pins(self, pins, device_name):
+    def _reserve_pins(self, pins: List[Any], device_name: str):
         """
-        Rezerwuje piny GPIO dla urządzenia.
-        :param pins: Lista pinów GPIO do zarezerwowania.
-        :param device_name: Nazwa urządzenia rezerwującego piny.
-        :raises RuntimeError: Jeśli którykolwiek pin jest już zajęty.
+        Reserves GPIO pins for the device.
+        :param pins: List of GPIO pins to reserve.
+        :param device_name: Name of the device reserving the pins.
+        :raises RuntimeError: If any pin is already occupied.
         """
         for pin in pins:
             if pin in self.gpio_registry:
@@ -127,12 +127,12 @@ class PeripheralManager:
             self.gpio_registry[pin] = device_name
             self.logger.log(f"[INFO] Pin {pin} reserved for {device_name}.", to_console=True)
 
-    def _reserve_ports(self, ports, device_name):
+    def _reserve_ports(self, ports: List[Any], device_name: str):
         """
-        Rezerwuje porty dla urządzenia.
-        :param ports: Lista portów do zarezerwowania.
-        :param device_name: Nazwa urządzenia rezerwującego porty.
-        :raises RuntimeError: Jeśli którykolwiek port jest już zajęty.
+        Reserves ports for the device.
+        :param ports: List of ports to reserve.
+        :param device_name: Name of the device reserving the ports.
+        :raises RuntimeError: If any port is already occupied.
         """
         for port in ports:
             if port in self.port_registry:
@@ -140,47 +140,46 @@ class PeripheralManager:
                 self._log_conflict(port, device_name, conflicting_device, resource_type="Port")
             self.port_registry[port] = device_name
 
-            # Logowanie parametrów portu przy rezerwacji
-            if isinstance(port, str):  # Jeżeli jest to port, np. /dev/ttyUSB0
+            # Log port parameters upon reservation
+            if isinstance(port, str):  # If it's a port, e.g., /dev/ttyUSB0
                 self.logger.log(f"[INFO] Port {port} reserved for {device_name}.", to_console=True)
 
-    def _log_conflict(self, resource, current_device, conflicting_device, resource_type):
+    def _log_conflict(self, resource: Any, current_device: str, conflicting_device: str, resource_type: str):
         """
-        Loguje konflikt zasobu i kończy działanie programu.
-        :param resource: Nazwa zasobu (pin lub port).
-        :param current_device: Urządzenie próbujące zarezerwować zasób.
-        :param conflicting_device: Urządzenie, które już zarezerwowało zasób.
-        :param resource_type: Typ zasobu ('Pin' lub 'Port').
+        Logs a resource conflict and terminates the program.
+        :param resource: Name of the resource (pin or port).
+        :param current_device: Device trying to reserve the resource.
+        :param conflicting_device: Device that already reserved the resource.
+        :param resource_type: Type of resource ('Pin' or 'Port').
         """
         message = (f"[ERROR] {resource_type} {resource} conflict: {current_device} cannot be initialized "
                    f"because it is already reserved by {conflicting_device}.")
         self.logger.log(message, to_console=True)
         raise RuntimeError(message)
 
-    def _log_resources_initialized(self, resources, device):
+    def _log_resources_initialized(self, resources: Dict[str, Any], device: Any, device_name: str):
         """
-        Loguje pomyślne zainicjalizowanie zasobów.
-        :param resources: Słownik z zasobami.
-        :param device_name: Nazwa urządzenia inicjalizującego zasoby.
+        Logs successful initialization of resources.
+        :param resources: Dictionary of resources.
+        :param device_name: Name of the device initializing the resources.
         """
         for pin in resources.get("pins", []):
-            self.logger.log(f"[INFO] Pin {pin} successfully initialized by {device.__class__.__name__}.", to_console=True)
+            self.logger.log(f"[INFO] Pin {pin} successfully initialized by {device_name}.", to_console=True)
         for port in resources.get("ports", []):
             device_param = device.get_initialized_params()
-            # Tworzymy dynamiczny log dla portu
+            # Create dynamic log entry for the port
             params_str = ', '.join([f"{key}: {value}" for key, value in device_param.items()])
-            
-            self.logger.log(f"[INFO] {device.__class__.__name__} successfully open {params_str} ", to_console=True)
 
-    def get_device(self, group, name):
+            self.logger.log(f"[INFO] {device_name} successfully open {params_str} ", to_console=True)
+
+    def get_device(self, group: str, name: str) -> Any:
         """
-        Znajduje urządzenie na podstawie grupy (protocols/peripherals) i nazwy.
-        :param group: Nazwa grupy ('protocols' lub 'peripherals').
-        :param name: Nazwa klasy urządzenia (np. 'RPiGPIO').
-        :return: Instancja urządzenia lub None, jeśli nie znaleziono.
+        Finds a device based on group ('protocols' or 'peripherals') and name.
+        :param group: Group name ('protocols' or 'peripherals').
+        :param name: Class name of the device (e.g., 'RPiGPIO').
+        :return: Device instance or raises ValueError if not found.
         """
-        if group in self.devices:
-            for device in self.devices[group]:
-                if type(device).__name__ == name:
-                    return device
+        for device in self.devices.get(group, []):
+            if type(device).__name__ == name:
+                return device
         raise ValueError(f"Device '{name}' not found in group '{group}'.")
