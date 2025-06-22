@@ -46,11 +46,11 @@ def resolve_html_path(arg_value):
     path = Path(arg_value).resolve()
 
     if path.suffix == ".html":
-        # Użytkownik podał pełną ścieżkę do pliku
+        # User provided full path to file
         path.parent.mkdir(parents=True, exist_ok=True)
         return str(path)
 
-    # Użytkownik podał ścieżkę do folderu
+    # User provided path to folder
     output_dir = path / "html_report"
     output_dir.mkdir(parents=True, exist_ok=True)
     return str(output_dir / "report.html")

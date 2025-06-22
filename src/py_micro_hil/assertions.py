@@ -1,4 +1,3 @@
-# assertions.py
 from contextvars import ContextVar
 
 # Create context variables

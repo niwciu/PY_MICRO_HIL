@@ -9,9 +9,6 @@ from py_micro_hil.RPiPeripherals import (
     RPiUART,
     RPiI2C,
     RPiSPI,
-    # RPi1Wire,
-    # RPiADC,
-    # RPiCAN,
     RPiHardwarePWM,
 )
 from py_micro_hil.protocols import ModbusRTU
@@ -177,42 +174,6 @@ def load_peripheral_configuration(yaml_file=None, logger=None):
             ))
         else:
             log_or_raise("Invalid configuration for SPI – expected dictionary.", warning=True)
-    # # --- 1-Wire ---
-    # if "one_wire" in peripherals_cfg:
-    #     ow = peripherals_cfg["one_wire"]
-    #     if isinstance(ow, dict):
-    #         # domyślnie pin 4, jeśli nie podano
-    #         pin = int(ow.get("pin", 4))
-    #         peripherals.append(
-    #             RPi1Wire(pin=pin, logger=logger, logging_enabled=True)
-    #         )
-    #     else:
-    #         log_or_raise("Invalid configuration for 1-Wire – expected dictionary.", warning=True)
-
-    # # --- CAN ---
-    # if "can" in peripherals_cfg:
-    #     can_config = peripherals_cfg["can"]
-    #     if isinstance(can_config, dict):
-    #         peripherals.append(RPiCAN(
-    #             interface       = can_config.get("interface", "can0"),
-    #             bitrate         = can_config.get("bitrate",   500000),
-    #             logger          = logger,
-    #             logging_enabled = True
-    #         ))
-    #     else:
-    #         log_or_raise("Invalid configuration for CAN – expected dictionary.", warning=True)
-
-    # # --- ADC ---
-    # if "adc" in peripherals_cfg:
-    #     adc_config = peripherals_cfg["adc"]
-    #     if isinstance(adc_config, dict):
-    #         peripherals.append(RPiADC(
-    #             channel         = adc_config.get("channel",   0),
-    #             logger          = logger,
-    #             logging_enabled = True
-    #         ))
-    #     else:
-    #         log_or_raise("Invalid configuration for ADC – expected dictionary.", warning=True)
 
     # --- Hardware PWM ---
     if "hardware_pwm" in peripherals_cfg:

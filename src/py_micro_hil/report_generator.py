@@ -4,16 +4,21 @@ from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 import inspect
 
 
-
 class ReportGenerator:
-    def __init__(self, logger, template_dir=None):
-        self.logger = logger
+    """
+    Responsible for generating HTML reports from test results using Jinja2 templates.
+    """
 
-        # Allow external override of template directory (default: src/py_micro_hil/templates)
-        if template_dir is None:
-            self.template_path = os.path.join(os.path.dirname(__file__), "templates")
-        else:
-            self.template_path = template_dir
+    def __init__(self, logger, template_dir=None):
+        """
+        Initializes the report generator with templates and a logger.
+
+        :param logger: Logger instance for console/file logging.
+        :param template_dir: Optional path to custom template directory.
+        :raises FileNotFoundError: If required templates or CSS are missing.
+        """
+        self.logger = logger
+        self.template_path = template_dir or os.path.join(os.path.dirname(__file__), "templates")
 
         self.template_file = os.path.join(self.template_path, "report_template.html")
         self.css_file = os.path.join(self.template_path, "styles.css")
@@ -34,15 +39,25 @@ class ReportGenerator:
             raise FileNotFoundError(f"Required template not found: {e}")
 
     def _log(self, msg):
+        """
+        Logs a message using the provided logger, or prints to console if unavailable.
+
+        :param msg: Message string to log.
+        """
         if hasattr(self.logger, "log"):
             self.logger.log(msg, to_console=True)
         else:
             print(msg)
 
     def generate(self, test_groups):
+        """
+        Generates a complete HTML test report, including per-group test code pages.
+
+        :param test_groups: List of test group objects containing test metadata.
+        """
         html_file = self.logger.html_file
         if not html_file:
-            self._log("\u26a0\ufe0f  No HTML file provided, skipping report generation.")
+            self._log("⚠️  No HTML file provided, skipping report generation.")
             return
 
         html_path = os.path.abspath(html_file)
@@ -79,7 +94,8 @@ class ReportGenerator:
         }
         summary["total_tests"] = summary["passed"] + summary["failed"]
         summary["pass_percentage"] = (
-            round((summary["passed"] / summary["total_tests"]) * 100, 1) if summary["total_tests"] > 0 else 0
+            round((summary["passed"] / summary["total_tests"]) * 100, 1)
+            if summary["total_tests"] > 0 else 0
         )
         summary["fail_percentage"] = round(100 - summary["pass_percentage"], 1)
 
@@ -103,6 +119,12 @@ class ReportGenerator:
         self._log(f"✅ HTML report generated at: {html_path}")
 
     def generate_test_code_pages(self, test_groups, html_dir):
+        """
+        Generates individual HTML pages for each test group, showing test source code.
+
+        :param test_groups: List of test group objects containing test functions.
+        :param html_dir: Path to directory where HTML files should be saved.
+        """
         for group in test_groups:
             group_name = group.name
             group_file_name = f"{group_name.replace(' ', '_').lower()}_tests.html"
@@ -113,15 +135,23 @@ class ReportGenerator:
                 if test.original_func:
                     try:
                         test_code = inspect.getsource(test.original_func)
-                        test_id = test.name.replace(" ", "_").lower()
+                        
+                        # 🔧 Tu jest poprawiony blok:
+                        import re
+                        test_id = re.sub(r'[^a-zA-Z0-9_]', '_', test.name).lower()
                         test.info = f"{group_file_name}#{test_id}"
+
+                        for entry in self.logger.log_entries:
+                            if entry.get("test_name") == test.name and entry.get("group_name") == group.name:
+                                entry["additional_info"] = test.info
+
                         test_code_entries.append({
                             "test_name": test.name,
                             "code": test_code,
                             "id": test_id,
                         })
                     except Exception as e:
-                        self._log(f"⚠\ufe0f  Could not extract source for test '{test.name}': {e}")
+                        self._log(f"⚠️  Could not extract source for test '{test.name}': {e}")
                         continue
 
             rendered = self.group_template.render(group_name=group_name, tests=test_code_entries)
