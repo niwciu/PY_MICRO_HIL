@@ -123,6 +123,7 @@ class TestFramework:
 
 
 class TestGroup:
+    __test__ = False
     def __init__(self, name, test_file=None):
         """
         :param name: Nazwa grupy testowej.
