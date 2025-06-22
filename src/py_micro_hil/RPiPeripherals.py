@@ -1,935 +1,707 @@
-import RPi.GPIO as GPIO
-from smbus2 import SMBus
-import spidev
-import serial
-import os
-from abc import ABC, abstractmethod
+import logging
+import subprocess
 import glob
 import time
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional, Union
+
+import RPi.GPIO as GPIO
+import spidev
+import serial
 import can
-from typing import List, Dict
+from smbus2 import SMBus
 
-class RPiGPIO_API(ABC):
-    @abstractmethod
-    def write(self, pin, value):
-        pass
-    
-    @abstractmethod
-    def read(self, pin):
-        pass
 
-    @abstractmethod
-    def toggle(self, pin):
-        pass
-
-    @abstractmethod
-    def enable_logging(self):
-        pass
-
-    @abstractmethod
-    def disable_logging(self):
-        pass
-
-class RPiGPIO(RPiGPIO_API):
-    def __init__(self, pin_config, logger=None, logging_enabled=True):
-        """
-        :param pin_config: {pin: {'mode': GPIO.OUT/IN, 'initial': GPIO.LOW/HIGH}}
-        """
-        self._pin_config = pin_config
+# Mixins for logging and resource management
+class LoggingMixin:
+    """
+    Mixin providing enable/disable logging and an internal _log helper.
+    """
+    def __init__(self, logger: Optional[logging.Logger] = None,
+                 logging_enabled: bool = True) -> None:
         self._logger = logger
         self._logging_enabled = logging_enabled
 
-    def get_required_resources(self):
-        return {"pins": list(self._pin_config.keys())}
-
-    def initialize(self):
-        GPIO.setmode(GPIO.BCM)
-        for pin, config in self._pin_config.items():
-            if config['mode'] == GPIO.OUT:
-                GPIO.setup(pin, GPIO.OUT, initial=config.get('initial', GPIO.LOW))
-                self._log(f"[INFO] GPIO pin {pin} set as OUTPUT.")
-            else:
-                GPIO.setup(pin, GPIO.IN)
-                self._log(f"[INFO] GPIO pin {pin} set as INPUT.")
-
-    def write(self, pin, value):
-        GPIO.output(pin, value)
-        self._log(f"[INFO] Written {value} to GPIO pin {pin}.")
-
-    def read(self, pin):
-        value = GPIO.input(pin)
-        self._log(f"[INFO] Read value {value} from GPIO pin {pin}.")
-        return value
-
-    def toggle(self, pin):
-        current = GPIO.input(pin)
-        GPIO.output(pin, not current)
-        self._log(f"[INFO] Toggled GPIO pin {pin} to {not current}.")
-
-    def release(self):
-        for pin in self._pin_config:
-            GPIO.cleanup(pin)
-            self._log(f"[INFO] GPIO pin {pin} released.")
-
-    def enable_logging(self):
+    def enable_logging(self) -> None:
+        """Enable debug logging."""
         self._logging_enabled = True
 
-    def disable_logging(self):
+    def disable_logging(self) -> None:
+        """Disable debug logging."""
         self._logging_enabled = False
 
-    def _log(self, message):
+    def _log(self, message: str, level: int = logging.INFO) -> None:
+        """Internal helper to log a message if logging is enabled."""
         if self._logging_enabled and self._logger:
-            self._logger.log(message)
+            self._logger.log(level, message)
 
+
+class ResourceMixin:
+    """
+    Mixin enabling use as a context manager: calls initialize on enter,
+    and release on exit.
+    """
+    def __enter__(self) -> Any:
+        self.initialize()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.release()
+
+
+# --- GPIO ---
+class RPiGPIO_API(ABC):
+    """Abstract interface for GPIO digital I/O."""
+    @abstractmethod
+    def write(self, pin: int, value: int) -> None:
+        pass
+
+    @abstractmethod
+    def read(self, pin: int) -> int:
+        pass
+
+    @abstractmethod
+    def toggle(self, pin: int) -> None:
+        pass
+
+    @abstractmethod
+    def enable_logging(self) -> None:
+        pass
+
+    @abstractmethod
+    def disable_logging(self) -> None:
+        pass
+
+
+class RPiGPIO(LoggingMixin, ResourceMixin, RPiGPIO_API):
+    """
+    Implementation of GPIO digital I/O using RPi.GPIO.
+    """
+    def __init__(self,
+                 pin_config: Dict[int, Dict[str, Any]],
+                 logger: Optional[logging.Logger] = None,
+                 logging_enabled: bool = True) -> None:
+        super().__init__(logger, logging_enabled)
+        self._pin_config = pin_config
+
+    def get_required_resources(self) -> Dict[str, List[int]]:
+        return {"pins": list(self._pin_config.keys())}
+
+    def initialize(self) -> None:
+        """Configure all GPIO pins according to pin_config."""
+        GPIO.setmode(GPIO.BCM)
+        for pin, cfg in self._pin_config.items():
+            mode = cfg.get('mode', GPIO.IN)
+            initial = cfg.get('initial')
+            if mode == GPIO.OUT:
+                if initial is not None:
+                    GPIO.setup(pin, GPIO.OUT, initial=initial)
+                else:
+                    GPIO.setup(pin, GPIO.OUT)
+                self._log(f"Initialized OUTPUT pin {pin}")
+            else:
+                GPIO.setup(pin, GPIO.IN)
+                self._log(f"Initialized INPUT pin {pin}")
+
+    def write(self, pin: int, value: int) -> None:
+        """Set digital output value on a pin."""
+        GPIO.output(pin, value)
+        self._log(f"Wrote value {value} to pin {pin}")
+
+    def read(self, pin: int) -> int:
+        """Read digital input value from a pin."""
+        val = GPIO.input(pin)
+        self._log(f"Read value {val} from pin {pin}")
+        return val
+
+    def toggle(self, pin: int) -> None:
+        """Toggle digital output on a pin."""
+        current = GPIO.input(pin)
+        GPIO.output(pin, not current)
+        self._log(f"Toggled pin {pin} to {not current}")
+
+    def release(self) -> None:
+        """Clean up all configured GPIO pins."""
+        for pin in self._pin_config:
+            GPIO.cleanup(pin)
+            self._log(f"Cleaned up pin {pin}")
+
+
+# --- Software PWM ---
 class RPiPWM_API(ABC):
+    """Abstract interface for software PWM using RPi.GPIO."""
     @abstractmethod
-    def set_duty_cycle(self, duty_cycle):
-        pass
-    
-    @abstractmethod
-    def set_frequency(self, frequency):
+    def set_duty_cycle(self, duty_cycle: float) -> None:
         pass
 
     @abstractmethod
-    def enable_logging(self):
+    def set_frequency(self, frequency: float) -> None:
         pass
 
     @abstractmethod
-    def disable_logging(self):
+    def enable_logging(self) -> None:
         pass
 
-class RPiPWM(RPiPWM_API):
-    def __init__(self, pin, frequency=1000, logger=None, logging_enabled=True):
+    @abstractmethod
+    def disable_logging(self) -> None:
+        pass
+
+
+class RPiPWM(LoggingMixin, ResourceMixin, RPiPWM_API):
+    """
+    Software PWM on a GPIO pin via RPi.GPIO.PWM.
+    """
+    def __init__(self,
+                 pin: int,
+                 frequency: float = 1000.0,
+                 logger: Optional[logging.Logger] = None,
+                 logging_enabled: bool = True) -> None:
+        super().__init__(logger, logging_enabled)
         self.pin = pin
         self.frequency = frequency
-        self.pwm = None
-        self.logger = logger
-        self.logging_enabled = logging_enabled
+        self._pwm: Optional[GPIO.PWM] = None
 
-    def get_required_resources(self):
+    def get_required_resources(self) -> Dict[str, List[int]]:
         return {"pins": [self.pin]}
 
-    def initialize(self):
+    def initialize(self) -> None:
+        """Initialize PWM with given frequency on pin."""
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.pin, GPIO.OUT)
-        self.pwm = GPIO.PWM(self.pin, self.frequency)
-        self.pwm.start(0)
-        self._log(f"[INFO] Started PWM on pin {self.pin} with frequency {self.frequency} Hz.")
+        self._pwm = GPIO.PWM(self.pin, self.frequency)
+        self._pwm.start(0)
+        self._log(f"Started PWM on pin {self.pin} at {self.frequency}Hz")
 
-    def set_duty_cycle(self, duty_cycle):
-        if self.pwm:
-            self.pwm.ChangeDutyCycle(duty_cycle)
-            self._log(f"[INFO] Set duty cycle to {duty_cycle}% on pin {self.pin}.")
+    def set_duty_cycle(self, duty_cycle: float) -> None:
+        """Change PWM duty cycle (0-100)."""
+        if not 0 <= duty_cycle <= 100:
+            raise ValueError("Duty cycle must be 0-100%")
+        self._pwm.ChangeDutyCycle(duty_cycle)
+        self._log(f"Duty cycle set to {duty_cycle}% on pin {self.pin}")
 
-    def set_frequency(self, frequency):
-        if self.pwm:
-            self.pwm.ChangeFrequency(frequency)
-            self._log(f"[INFO] Changed frequency to {frequency} Hz on pin {self.pin}.")
+    def set_frequency(self, frequency: float) -> None:
+        """Change PWM frequency."""
+        if frequency <= 0:
+            raise ValueError("Frequency must be > 0Hz")
+        self._pwm.ChangeFrequency(frequency)
+        self._log(f"Frequency changed to {frequency}Hz on pin {self.pin}")
 
-    def release(self):
-        if self.pwm:
-            self.pwm.stop()
-            self._log(f"[INFO] Stopped PWM on pin {self.pin}.")
+    def release(self) -> None:
+        """Stop PWM and clean up GPIO."""
+        if self._pwm:
+            self._pwm.stop()
         GPIO.cleanup(self.pin)
-        self._log(f"[INFO] Released pin {self.pin}.")
+        self._log(f"Stopped PWM and cleaned up pin {self.pin}")
 
-    def enable_logging(self):
-        self.logging_enabled = True
 
-    def disable_logging(self):
-        self.logging_enabled = False
-
-    def _log(self, message):
-        if self.logging_enabled and self.logger:
-            self.logger.log(message)
-
+# --- UART ---
 class RPiUART_API(ABC):
+    """Abstract interface for UART serial communication."""
     @abstractmethod
-    def initialize(self):
-        pass
-    
-    @abstractmethod
-    def send(self, data):
-        pass
+    def initialize(self) -> None: pass
 
     @abstractmethod
-    def receive(self, size=1):
-        pass
-    
-    @abstractmethod
-    def readline(self):
-        pass
+    def send(self, data: Union[str, bytes]) -> None: pass
 
     @abstractmethod
-    def enable_logging(self):
-        pass
+    def receive(self, size: int = 1) -> bytes: pass
 
     @abstractmethod
-    def disable_logging(self):
-        pass
+    def readline(self) -> bytes: pass
 
-class RPiUART(RPiUART_API):
-    def __init__(self, port='/dev/serial0', baudrate=9600, timeout=1,
-                 parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE,
-                 logger=None, logging_enabled=True):
+    @abstractmethod
+    def release(self) -> None: pass
+
+
+class RPiUART(LoggingMixin, ResourceMixin, RPiUART_API):
+    """
+    UART interface using pyserial on Raspberry Pi.
+    """
+    def __init__(self,
+                 port: str = '/dev/serial0',
+                 baudrate: int = 9600,
+                 timeout: float = 1.0,
+                 parity: Any = serial.PARITY_NONE,
+                 stopbits: Any = serial.STOPBITS_ONE,
+                 logger: Optional[logging.Logger] = None,
+                 logging_enabled: bool = True) -> None:
+        super().__init__(logger, logging_enabled)
         self.port = port
         self.baudrate = baudrate
         self.timeout = timeout
         self.parity = parity
         self.stopbits = stopbits
-        self.serial = None
-        self.reserved_pins = [14, 15]  # TXD, RXD
-        self.logger = logger
-        self.logging_enabled = logging_enabled
+        self._serial: Optional[serial.Serial] = None
 
-    def get_required_resources(self):
-        return {"pins": self.reserved_pins, "ports": [self.port]}
+    def get_required_resources(self) -> Dict[str, List[Union[int, str]]]:
+        return {"pins": [14, 15], "ports": [self.port]}
 
-    def initialize(self):
-        self.serial = serial.Serial(
+    def initialize(self) -> None:
+        """Open serial port for UART communication."""
+        self._serial = serial.Serial(
             port=self.port,
             baudrate=self.baudrate,
             timeout=self.timeout,
             parity=self.parity,
             stopbits=self.stopbits
         )
-        self._log(f"[INFO] UART initialized on {self.port} with baudrate {self.baudrate}.")
+        self._log(f"Initialized UART on {self.port} at {self.baudrate}bps")
 
-    def send(self, data):
-        if self.serial and self.serial.is_open:
-            self.serial.write(data.encode() if isinstance(data, str) else data)
-            self._log(f"[INFO] Sent data over UART: {data}")
+    def send(self, data: Union[str, bytes]) -> None:
+        """Send bytes or string over UART."""
+        if isinstance(data, str):
+            data = data.encode()
+        self._serial.write(data)
+        self._log(f"Sent {data} over UART")
 
-    def receive(self, size=1):
-        if self.serial and self.serial.is_open:
-            data = self.serial.read(size)
-            self._log(f"[INFO] Received data from UART: {data}")
-            return data
-        return b''
+    def receive(self, size: int = 1) -> bytes:
+        """Read a fixed number of bytes from UART."""
+        data = self._serial.read(size)
+        self._log(f"Received {data} from UART")
+        return data
 
-    def readline(self):
-        if self.serial and self.serial.is_open:
-            line = self.serial.readline()
-            self._log(f"[INFO] Read line from UART: {line}")
-            return line
-        return b''
-
-    def release(self):
-        if self.serial and self.serial.is_open:
-            self.serial.close()
-            self._log(f"[INFO] UART on port {self.port} closed.")
-
-    def get_initialized_params(self):
-        return {
-            "port": self.port,
-            "baudrate": self.baudrate,
-            "stopbits": self.stopbits,
-            "parity": self.parity,
-            "timeout": self.timeout
-        }
-
-    def enable_logging(self):
-        self.logging_enabled = True
-
-    def disable_logging(self):
-        self.logging_enabled = False
-
-    def _log(self, message):
-        if self.logging_enabled and self.logger:
-            self.logger.log(message)
-
-
-class RPiI2C_API(ABC):
-
-    @abstractmethod
-    def scan(self) -> list[int]:
-        """Skanuje magistralę w poszukiwaniu urządzeń I2C."""
-        pass
-
-    @abstractmethod
-    def read(self, address: int, register: int, length: int) -> list[int]:
-        """Odczytuje blok danych z urządzenia I2C."""
-        pass
-
-    @abstractmethod
-    def write(self, address: int, register: int, data: list[int]) -> None:
-        """Wysyła blok danych do urządzenia I2C."""
-        pass
-
-    @abstractmethod
-    def read_byte(self, address: int) -> int:
-        """Odczytuje pojedynczy bajt z urządzenia I2C."""
-        pass
-
-    @abstractmethod
-    def write_byte(self, address: int, value: int) -> None:
-        """Wysyła pojedynczy bajt do urządzenia I2C."""
-        pass
-
-    @abstractmethod
-    def read_word(self, address: int, register: int) -> int:
-        """Odczytuje słowo (2 bajty) z urządzenia I2C."""
-        pass
-
-    @abstractmethod
-    def write_word(self, address: int, register: int, value: int) -> None:
-        """Zapisuje słowo (2 bajty) do urządzenia I2C."""
-        pass
-
-    @abstractmethod
-    def enable_logging(self):
-        pass
-
-    @abstractmethod
-    def disable_logging(self):
-        pass
-
-class RPiI2C(RPiI2C_API):
-    def __init__(self, bus: int = 1, frequency: int = 100000):
-        """
-        Klasa do obsługi magistrali I2C.
-        :param bus: Numer magistrali I2C (0 lub 1).
-        :param frequency: Częstotliwość magistrali (tylko informacyjnie).
-        """
-        self.bus_number = bus
-        self.frequency = frequency
-        self.bus: SMBus | None = None
-
-        # Przypisanie pinów zależnie od magistrali
-        if self.bus_number == 1:
-            self.reserved_pins = [2, 3]  # SDA, SCL
-        elif self.bus_number == 0:
-            self.reserved_pins = [0, 1]  # SDA, SCL
-        else:
-            raise ValueError(f"Invalid bus number: {self.bus_number}. Only 0 and 1 are supported.")
-
-    def get_required_resources(self) -> dict:
-        """
-        Zwraca wymagane zasoby sprzętowe: piny GPIO i interfejs systemowy.
-        """
-        return {
-            "pins": self.reserved_pins,
-            "ports": [f"/dev/i2c-{self.bus_number}"]
-        }
-
-    def get_initialized_params(self) -> dict:
-        """
-        Zwraca parametry konfiguracyjne po inicjalizacji magistrali.
-        """
-        return {
-            "bus": f"I2C{self.bus_number}",
-            "frequency": self.frequency
-        }
-
-    def initialize(self) -> None:
-        """
-        Inicjalizuje magistralę I2C poprzez otwarcie odpowiedniego urządzenia.
-        """
-        self.bus = SMBus(self.bus_number)
+    def readline(self) -> bytes:
+        """Read until newline from UART."""
+        line = self._serial.readline()
+        self._log(f"Read line {line} from UART")
+        return line
 
     def release(self) -> None:
-        """
-        Zamyka otwartą magistralę I2C.
-        """
-        if self.bus:
-            self.bus.close()
-            self.bus = None
-
-    def read(self, address: int, register: int, length: int) -> list[int]:
-        """
-        Odczytuje blok danych z urządzenia I2C.
-        :param address: Adres urządzenia.
-        :param register: Rejestr początkowy.
-        :param length: Liczba bajtów do odczytania.
-        :return: Lista bajtów.
-        """
-        return self.bus.read_i2c_block_data(address, register, length)
-
-    def write(self, address: int, register: int, data: list[int]) -> None:
-        """
-        Wysyła blok danych do urządzenia I2C.
-        :param address: Adres urządzenia.
-        :param register: Rejestr docelowy.
-        :param data: Lista bajtów do wysłania.
-        """
-        self.bus.write_i2c_block_data(address, register, data)
-
-    def scan(self) -> list[int]:
-        """
-        Skanuje magistralę w poszukiwaniu aktywnych urządzeń I2C.
-        :return: Lista wykrytych adresów.
-        """
-        devices = []
-        for address in range(0x08, 0x78):  # Zakres sensownych adresów
-            try:
-                self.bus.write_quick(address)
-                devices.append(address)
-            except Exception:
-                continue
-        return devices
-
-    def write_byte(self, address: int, value: int) -> None:
-        """
-        Wysyła pojedynczy bajt do urządzenia I2C.
-        :param address: Adres urządzenia.
-        :param value: Bajt do wysłania.
-        """
-        self.bus.write_byte(address, value)
-
-    def read_byte(self, address: int) -> int:
-        """
-        Odczytuje pojedynczy bajt z urządzenia I2C.
-        :param address: Adres urządzenia.
-        :return: Bajt odczytany.
-        """
-        return self.bus.read_byte(address)
-
-    def read_word(self, address: int, register: int) -> int:
-        """
-        Odczytuje słowo (2 bajty) z określonego rejestru.
-        :param address: Adres urządzenia.
-        :param register: Rejestr do odczytu.
-        :return: Słowo (2 bajty).
-        """
-        return self.bus.read_word_data(address, register)
-
-    def write_word(self, address: int, register: int, value: int) -> None:
-        """
-        Zapisuje słowo (2 bajty) do określonego rejestru.
-        :param address: Adres urządzenia.
-        :param register: Rejestr docelowy.
-        :param value: Wartość do zapisania.
-        """
-        self.bus.write_word_data(address, register, value)
-    
-    def enable_logging(self):
-        self.logging_enabled = True
-
-    def disable_logging(self):
-        self.logging_enabled = False
-
-    def _log(self, message):
-        if self.logging_enabled and self.logger:
-            self.logger.log(message)
+        """Close UART serial port."""
+        if self._serial:
+            self._serial.close()
+            self._log(f"Closed UART on {self.port}")
 
 
-
-class RPiSPI_API(ABC):
+# --- I2C ---
+class RPiI2C_API(ABC):
+    """Abstract interface for I2C communication."""
     @abstractmethod
-    def transfer(self, data: List[int]) -> List[int]:
-        """Przesyła dane przez SPI i odbiera odpowiedź."""
-        pass
-
+    def scan(self) -> List[int]: pass
     @abstractmethod
-    def transfer_bytes(self, data: bytes) -> bytes:
-        """Przesyła dane jako bytes i odbiera odpowiedź jako bytes."""
-        pass
-
+    def read(self, address: int, register: int, length: int) -> List[int]: pass
     @abstractmethod
-    def write_bytes(self, data: List[int]) -> None:
-        """Wysyła dane bez oczekiwania odpowiedzi."""
-        pass
-
+    def write(self, address: int, register: int, data: List[int]) -> None: pass
     @abstractmethod
-    def read_bytes(self, length: int) -> List[int]:
-        """Odczytuje określoną liczbę bajtów z magistrali SPI."""
-        pass
-
+    def read_byte(self, address: int) -> int: pass
     @abstractmethod
-    def transfer2(self, data: List[int]) -> List[int]:
-        """Pełny transfer SPI z trzymaniem CS pomiędzy bajtami."""
-        pass
-
+    def write_byte(self, address: int, value: int) -> None: pass
     @abstractmethod
-    def enable_logging(self):
-        pass
-
+    def read_word(self, address: int, register: int) -> int: pass
     @abstractmethod
-    def disable_logging(self):
-        pass
-    
+    def write_word(self, address: int, register: int, value: int) -> None: pass
+    @abstractmethod
+    def enable_logging(self) -> None: pass
+    @abstractmethod
+    def disable_logging(self) -> None: pass
 
-class RPiSPI(RPiSPI_API):
-    def __init__(
-        self,
-        bus: int = 0,
-        device: int = 0,
-        max_speed_hz: int = 50000,
-        mode: int = 0,
-        bits_per_word: int = 8,
-        cs_high: bool = False,
-        lsbfirst: bool = False,
-        timeout: float = 1.0,
-    ):
-        # (jak wcześniej)
-        ...
+class RPiI2C(LoggingMixin, ResourceMixin, RPiI2C_API):
+    """
+    I2C interface using smbus2.
+    """
+    def __init__(self,
+                 bus_number: int = 1,
+                 frequency: int = 100000,
+                 logger: Optional[logging.Logger] = None,
+                 logging_enabled: bool = True) -> None:
+        super().__init__(logger, logging_enabled)
+        if bus_number not in (0, 1):
+            raise ValueError("I2C bus must be 0 or 1")
+        self.bus_number = bus_number
+        self.frequency = frequency
+        self.bus: Optional[SMBus] = None
 
-    def get_required_resources(self) -> dict:
-        return {
-            "pins": self.reserved_pins,
-            "ports": [f"/dev/spidev{self.bus}.{self.device}"]
-        }
-
-    def get_initialized_params(self) -> dict:
-        return {
-            "device": f"spidev{self.bus}.{self.device}",
-            "max_speed_hz": self.max_speed_hz,
-            "mode": self.mode,
-            "bits_per_word": self.bits_per_word,
-            "cs_high": self.cs_high,
-            "lsbfirst": self.lsbfirst
-        }
+    def get_required_resources(self) -> Dict[str, List[Union[int,str]]]:
+        return {"pins": [2,3] if self.bus_number==1 else [0,1],
+                "ports": [f"/dev/i2c-{self.bus_number}"]}
 
     def initialize(self) -> None:
+        """Open I2C bus."""
+        self.bus = SMBus(self.bus_number)
+        self._log(f"Initialized I2C bus {self.bus_number} at {self.frequency}Hz")
+
+    def scan(self) -> List[int]:
+        """Scan for I2C devices."""
+        devices: List[int] = []
+        for addr in range(0x08, 0x78):
+            try:
+                self.bus.write_quick(addr)
+                devices.append(addr)
+            except Exception:
+                pass
+        self._log(f"I2C scan found {devices}")
+        return devices
+
+    def read(self, address: int, register: int, length: int) -> List[int]:
+        """Read block data from I2C device."""
+        data = self.bus.read_i2c_block_data(address, register, length)
+        self._log(f"I2C read from 0x{address:02X}, reg 0x{register:02X}: {data}")
+        return data
+
+    def write(self, address: int, register: int, data: List[int]) -> None:
+        """Write block data to I2C device."""
+        self.bus.write_i2c_block_data(address, register, data)
+        self._log(f"I2C write to 0x{address:02X}, reg 0x{register:02X}: {data}")
+
+    def read_byte(self, address: int) -> int:
+        """Read single byte from I2C device."""
+        val = self.bus.read_byte(address)
+        self._log(f"I2C read_byte from 0x{address:02X}: 0x{val:02X}")
+        return val
+
+    def write_byte(self, address: int, value: int) -> None:
+        """Write single byte to I2C device."""
+        self.bus.write_byte(address, value)
+        self._log(f"I2C write_byte to 0x{address:02X}: 0x{value:02X}")
+
+    def read_word(self, address: int, register: int) -> int:
+        """Read word (2 bytes) from I2C device."""
+        val = self.bus.read_word_data(address, register)
+        self._log(f"I2C read_word from 0x{address:02X}, reg 0x{register:02X}: 0x{val:04X}")
+        return val
+
+    def write_word(self, address: int, register: int, value: int) -> None:
+        """Write word (2 bytes) to I2C device."""
+        self.bus.write_word_data(address, register, value)
+        self._log(f"I2C write_word to 0x{address:02X}, reg 0x{register:02X}: 0x{value:04X}")
+
+    def release(self) -> None:
+        """Close I2C bus."""
+        self.bus.close()
+        self._log(f"Closed I2C bus {self.bus_number}")
+
+
+# --- SPI ---
+class RPiSPI_API(ABC):
+    """Abstract interface for SPI communication."""
+    @abstractmethod
+    def transfer(self, data: List[int]) -> List[int]: pass
+    @abstractmethod
+    def transfer_bytes(self, data: bytes) -> bytes: pass
+    @abstractmethod
+    def write_bytes(self, data: List[int]) -> None: pass
+    @abstractmethod
+    def read_bytes(self, length: int) -> List[int]: pass
+    @abstractmethod
+    def transfer2(self, data: List[int]) -> List[int]: pass
+    @abstractmethod
+    def enable_logging(self) -> None: pass
+    @abstractmethod
+    def disable_logging(self) -> None: pass
+
+class RPiSPI(LoggingMixin, ResourceMixin, RPiSPI_API):
+    """
+    SPI interface using spidev.
+    """
+    def __init__(self,
+                 bus: int = 0,
+                 device: int = 0,
+                 max_speed_hz: int = 500000,
+                 mode: int = 0,
+                 bits_per_word: int = 8,
+                 cs_high: bool = False,
+                 lsbfirst: bool = False,
+                 logger: Optional[logging.Logger] = None,
+                 logging_enabled: bool = True) -> None:
+        super().__init__(logger, logging_enabled)
+        self.bus = bus
+        self.device = device
+        self.max_speed_hz = max_speed_hz
+        self.mode = mode
+        self.bits_per_word = bits_per_word
+        self.cs_high = cs_high
+        self.lsbfirst = lsbfirst
+        self.spi = spidev.SpiDev()
+
+    def get_required_resources(self) -> Dict[str, List[Union[int,str]]]:
+        return {"ports": [f"/dev/spidev{self.bus}.{self.device}"]}
+
+    def initialize(self) -> None:
+        """Open SPI bus and apply settings."""
         self.spi.open(self.bus, self.device)
         self.spi.max_speed_hz = self.max_speed_hz
         self.spi.mode = self.mode
         self.spi.bits_per_word = self.bits_per_word
         self.spi.cshigh = self.cs_high
         self.spi.lsbfirst = self.lsbfirst
+        self._log(f"Initialized SPI /dev/spidev{self.bus}.{self.device} @ {self.max_speed_hz}Hz")
 
-    def release(self) -> None:
-        self.spi.close()
-
-    def transfer(self, data: list[int]) -> list[int]:
-        """
-        Wysyła dane i odbiera odpowiedź z urządzenia SPI.
-        :param data: Lista bajtów do wysłania.
-        :return: Lista odebranych bajtów.
-        """
-        return self.spi.xfer(data)
+    def transfer(self, data: List[int]) -> List[int]:
+        """Full-duplex SPI transfer (list of ints)."""
+        resp = self.spi.xfer(data)
+        self._log(f"SPI transfer sent={data}, recv={resp}")
+        return resp
 
     def transfer_bytes(self, data: bytes) -> bytes:
-        """
-        Wysyła dane w postaci bajtów i odbiera odpowiedź.
-        :param data: Dane wejściowe jako bytes.
-        :return: Odpowiedź również jako bytes.
-        """
-        return bytes(self.spi.xfer(list(data)))
+        """Full-duplex SPI transfer (bytes)."""
+        resp = bytes(self.spi.xfer(list(data)))
+        self._log(f"SPI transfer_bytes sent={list(data)}, recv={list(resp)}")
+        return resp
 
-    def write_bytes(self, data: list[int]) -> None:
-        """
-        Wysyła dane bez odbierania odpowiedzi.
-        :param data: Lista bajtów do wysłania.
-        """
+    def write_bytes(self, data: List[int]) -> None:
+        """Write-only SPI transaction."""
         self.spi.writebytes(data)
+        self._log(f"SPI write_bytes data={data}")
 
-    def read_bytes(self, length: int) -> list[int]:
-        """
-        Odczytuje określoną liczbę bajtów z magistrali SPI.
-        :param length: Liczba bajtów do odczytu.
-        :return: Odczytane bajty.
-        """
-        return self.spi.readbytes(length)
+    def read_bytes(self, length: int) -> List[int]:
+        """Read-only SPI transaction."""
+        data = self.spi.readbytes(length)
+        self._log(f"SPI read_bytes length={length}, data={data}")
+        return data
 
-    def transfer2(self, data: list[int]) -> list[int]:
-        """
-        Wysyła dane i odbiera odpowiedź, trzymając CS między bajtami.
-        :param data: Lista bajtów.
-        :return: Lista odpowiedzi.
-        """
-        return self.spi.xfer2(data)
-    
-    def enable_logging(self):
-        self.logging_enabled = True
+    def transfer2(self, data: List[int]) -> List[int]:
+        """SPI transfer with CS held active between bytes."""
+        resp = self.spi.xfer2(data)
+        self._log(f"SPI transfer2 sent={data}, recv={resp}")
+        return resp
 
-    def disable_logging(self):
-        self.logging_enabled = False
-
-    def _log(self, message):
-        if self.logging_enabled and self.logger:
-            self.logger.log(message)
+    def release(self) -> None:
+        """Close SPI device."""
+        self.spi.close()
+        self._log(f"Closed SPI /dev/spidev{self.bus}.{self.device}")
 
 
+# --- 1-Wire ---
 class RPi1Wire_API(ABC):
+    """Abstract interface for 1-Wire bus via sysfs."""
     @abstractmethod
-    def list_devices(self):
-        """Zwraca listę urządzeń 1-Wire podłączonych do magistrali."""
-        pass
-
+    def list_devices(self) -> List[str]: pass
     @abstractmethod
-    def read_device(self, device_id, filename='w1_slave'):
-        """Odczytuje zawartość pliku urządzenia 1-Wire."""
-        pass
-
+    def read_device(self, device_id: str, filename: str = 'w1_slave') -> str: pass
     @abstractmethod
-    def read_temperature(self, device_id=None):
-        """Odczytuje temperaturę z urządzenia DS18B20 lub innego."""
-        pass
-
+    def read_temperature(self, device_id: Optional[str] = None) -> float: pass
     @abstractmethod
-    def reset_bus(self):
-        """Resetuje magistralę 1-Wire."""
-        pass
-
+    def reset_bus(self) -> None: pass
     @abstractmethod
-    def write_byte(self, device_id, value):
-        """Wysyła bajt do urządzenia 1-Wire (opcjonalne)."""
-        pass
-
+    def release(self) -> None: pass
     @abstractmethod
-    def enable_logging(self):
-        pass
-
+    def enable_logging(self) -> None: pass
     @abstractmethod
-    def disable_logging(self):
-        pass
+    def disable_logging(self) -> None: pass
 
-
-class RPi1Wire(RPi1Wire_API):
-    def __init__(self, pin):
-        """
-        Klasa do obsługi magistrali 1-Wire na Raspberry Pi.
-        :param pin: Numer pinu GPIO do komunikacji 1-Wire (BCM).
-        """
+class RPi1Wire(LoggingMixin, ResourceMixin, RPi1Wire_API):
+    """
+    1-Wire interface via Linux sysfs (e.g., DS18B20 sensors).
+    """
+    def __init__(self,
+                 pin: int,
+                 logger: Optional[logging.Logger] = None,
+                 logging_enabled: bool = True) -> None:
+        super().__init__(logger, logging_enabled)
         self.pin = pin
-        self.device_files = []
+        self.device_files: List[str] = []
 
-    def get_required_resources(self):
-        """Zwraca listę pinów używanych przez magistralę 1-Wire."""
+    def get_required_resources(self) -> Dict[str, List[int]]:
         return {"pins": [self.pin]}
 
-    def initialize(self):
-        """
-        Inicjalizuje interfejs 1-Wire oraz ładuje odpowiednie moduły jądra.
-        Wyszukuje dostępne urządzenia na magistrali i zapisuje ich pliki.
-        """
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(self.pin, GPIO.IN)
-
-        os.system("modprobe w1-gpio")
-        os.system("modprobe w1-therm")
-
-        base_dir = '/sys/bus/w1/devices/'
-        # odczekaj chwilę na załadowanie urządzeń
+    def initialize(self) -> None:
+        """Load kernel modules and scan for devices."""
+        GPIO.setmode(GPIO.BCM); GPIO.setup(self.pin, GPIO.IN)
+        subprocess.run(['modprobe','w1-gpio'], check=True)
+        subprocess.run(['modprobe','w1-therm'], check=True)
         time.sleep(1)
-        self.device_files = glob.glob(base_dir + '28*')  # czujniki temperatury DS18B20 jako przykład
+        base='/sys/bus/w1/devices/'
+        self.device_files=glob.glob(f"{base}28*" )
+        self._log(f"1-Wire found devices={self.device_files}")
 
-        if not self.device_files:
-            print("Nie znaleziono urządzeń 1-Wire. Sprawdź połączenia.")
+    def list_devices(self) -> List[str]:
+        """Return list of attached 1-Wire device IDs."""
+        ids=[]
+        for d in self.device_files:
+            ids.append(d.split('/')[-1])
+        self._log(f"1-Wire list_devices={ids}")
+        return ids
 
-    def list_devices(self):
-        """
-        Zwraca listę identyfikatorów urządzeń podłączonych do magistrali 1-Wire.
-        """
-        base_dir = '/sys/bus/w1/devices/'
-        devices = glob.glob(base_dir + '*/')
-        return [os.path.basename(d.strip('/')) for d in devices if 'w1_bus_master' not in d]
+    def read_device(self, device_id: str, filename: str='w1_slave') -> str:
+        """Read raw contents of a 1-Wire device file."""
+        path=f"/sys/bus/w1/devices/{device_id}/{filename}"
+        with open(path,'r') as f: data=f.read()
+        self._log(f"1-Wire read {path}")
+        return data
 
-    def read_device(self, device_id, filename='w1_slave'):
-        """
-        Odczytuje zawartość pliku urządzenia 1-Wire.
-        :param device_id: Identyfikator urządzenia 1-Wire.
-        :param filename: Nazwa pliku do odczytu w katalogu urządzenia.
-        :return: Zawartość pliku jako string.
-        """
-        device_path = f'/sys/bus/w1/devices/{device_id}/{filename}'
-        with open(device_path, 'r') as f:
-            return f.read()
+    def read_temperature(self, device_id: Optional[str]=None) -> float:
+        """Parse temperature reading from DS18B20."""
+        if device_id is None: device_id=self.list_devices()[0]
+        raw=self.read_device(device_id)
+        lines=raw.splitlines()
+        if not lines[0].endswith('YES'): raise IOError('CRC check failed')
+        temp=int(lines[1].split('t=')[-1])/1000.0
+        self._log(f"1-Wire temp={temp}C for {device_id}")
+        return temp
 
-    def read_temperature(self, device_id=None):
-        """
-        Odczytuje temperaturę z wybranego urządzenia DS18B20.
-        :param device_id: ID urządzenia, jeśli None to używa pierwszego znalezionego.
-        :return: Temperatura w stopniach Celsjusza.
-        """
-        if device_id is None:
-            if not self.device_files:
-                raise RuntimeError("Brak wykrytych urządzeń 1-Wire.")
-            device_id = os.path.basename(self.device_files[0])
+    def reset_bus(self) -> None:
+        """Reload 1-Wire kernel modules."""
+        subprocess.run(['modprobe','-r','w1-gpio'],check=True)
+        subprocess.run(['modprobe','w1-gpio'],check=True)
+        self._log("1-Wire bus reset")
 
-        data = self.read_device(device_id)
-        lines = data.split('\n')
-        if 'YES' not in lines[0]:
-            raise IOError("Błąd odczytu danych z czujnika.")
-        equals_pos = lines[1].find('t=')
-        if equals_pos == -1:
-            raise IOError("Nie znaleziono danych temperatury.")
-        temp_string = lines[1][equals_pos + 2:]
-        return float(temp_string) / 1000.0
-
-    def reset_bus(self):
-        """
-        Resetuje magistralę 1-Wire.
-        (Na Raspberry Pi to zazwyczaj wiąże się z odładowaniem i załadowaniem modułów).
-        """
-        os.system("modprobe -r w1_gpio")
-        os.system("modprobe w1_gpio")
-        time.sleep(0.5)
-
-    def write_byte(self, device_id, value):
-        """
-        Zapisuje bajt do urządzenia 1-Wire (jeśli urządzenie i sterownik to obsługują).
-        Na Raspberry Pi typowo odczyt/zapis odbywa się poprzez sysfs i jest ograniczony.
-        Ta metoda może wymagać dedykowanych sterowników.
-        """
-        raise NotImplementedError("Bezpośredni zapis bajtu nie jest standardowo wspierany przez sysfs.")
-
-    def release(self):
-        """Zwalnia zasoby GPIO oraz odładowuje moduły 1-Wire."""
+    def release(self) -> None:
+        """Cleanup GPIO and unload modules."""
         GPIO.cleanup(self.pin)
-        os.system("modprobe -r w1-gpio")
-        os.system("modprobe -r w1-therm")
-    
-    def enable_logging(self):
-        self.logging_enabled = True
-
-    def disable_logging(self):
-        self.logging_enabled = False
-
-    def _log(self, message):
-        if self.logging_enabled and self.logger:
-            self.logger.log(message)
+        subprocess.run(['modprobe','-r','w1-gpio'],check=True)
+        subprocess.run(['modprobe','-r','w1-therm'],check=True)
+        self._log("1-Wire released")
 
 
+# --- ADC (MCP3008) via SPI---
 class RPiADC_API(ABC):
+    """Abstract interface for ADC reading."""
     @abstractmethod
-    def get_required_resources(self):
-        """Zwraca zasoby wymagane przez ADC."""
-        pass
-
+    def initialize(self) -> None: pass
     @abstractmethod
-    def initialize(self):
-        """Inicjalizuje połączenie z ADC."""
-        pass
-
+    def read(self) -> int: pass
     @abstractmethod
-    def read(self):
-        """Odczytuje wartość analogową z ADC."""
-        pass
-
+    def read_all_channels(self) -> List[int]: pass
     @abstractmethod
-    def read_all_channels(self):
-        """Odczytuje wartości ze wszystkich kanałów ADC."""
-        pass
-
+    def release(self) -> None: pass
     @abstractmethod
-    def release(self):
-        """Zwalnia zasoby ADC."""
-        pass
-
+    def enable_logging(self) -> None: pass
     @abstractmethod
-    def enable_logging(self):
-        pass
+    def disable_logging(self) -> None: pass
 
-    @abstractmethod
-    def disable_logging(self):
-        pass
+class RPiADC(LoggingMixin, ResourceMixin, RPiADC_API):
+    """
+    10-bit ADC (e.g., MCP3008) over SPI.
+    """
+    def __init__(self,
+                 channel: int=0,
+                 logger: Optional[logging.Logger]=None,
+                 logging_enabled: bool=True) -> None:
+        super().__init__(logger, logging_enabled)
+        if channel not in range(8): raise ValueError("Channel 0-7")
+        self.channel=channel
+        self.spi=spidev.SpiDev()
 
-class RPiADC(RPiADC_API):
-    def __init__(self, channel=0):
-        """
-        Klasa do obsługi przetwornika ADC (np. MCP3008) przez SPI.
-        :param channel: Kanał ADC (0-7).
-        """
-        if channel not in range(8):
-            raise ValueError("Kanał musi być z zakresu 0-7.")
-        self.channel = channel
-        self.spi = spidev.SpiDev()
+    def initialize(self) -> None:
+        """Open SPI for ADC."""
+        self.spi.open(0,0)
+        self.spi.max_speed_hz=1350000
+        self._log(f"ADC initialized channel={self.channel}")
 
-    def get_required_resources(self):
-        """Zwraca zasoby wymagane przez ADC (standardowe piny SPI)."""
-        return {"pins": [7, 8, 9, 10, 11]}  # piny SPI0
+    def read(self) -> int:
+        """Read single channel value (0-1023)."""
+        resp=self.spi.xfer2([1,(8+self.channel)<<4,0])
+        val=((resp[1]&3)<<8)|resp[2]
+        self._log(f"ADC read channel={self.channel}, value={val}")
+        return val
 
-    def initialize(self):
-        """Inicjalizuje połączenie SPI i ustawia parametry ADC."""
-        self.spi.open(0, 0)
-        self.spi.max_speed_hz = 1350000
-
-    def read(self):
-        """
-        Czyta wartość analogową z wybranego kanału ADC.
-        :return: Wartość 10-bitowa (0-1023).
-        """
-        adc = self.spi.xfer2([1, (8 + self.channel) << 4, 0])
-        return ((adc[1] & 3) << 8) + adc[2]
-
-    def read_all_channels(self):
-        """
-        Odczytuje wartości ze wszystkich kanałów ADC (0-7).
-        :return: Lista wartości analogowych z każdego kanału.
-        """
-        values = []
+    def read_all_channels(self) -> List[int]:
+        """Read all 8 channels."""
+        vals=[]
         for ch in range(8):
-            adc = self.spi.xfer2([1, (8 + ch) << 4, 0])
-            val = ((adc[1] & 3) << 8) + adc[2]
-            values.append(val)
-        return values
+            resp=self.spi.xfer2([1,(8+ch)<<4,0])
+            vals.append(((resp[1]&3)<<8)|resp[2])
+        self._log(f"ADC all channels={vals}")
+        return vals
 
-    def release(self):
-        """Zamyka połączenie SPI."""
+    def release(self) -> None:
+        """Close SPI ADC."""
         self.spi.close()
-    
-    def enable_logging(self):
-        self.logging_enabled = True
-
-    def disable_logging(self):
-        self.logging_enabled = False
-
-    def _log(self, message):
-        if self.logging_enabled and self.logger:
-            self.logger.log(message)
+        self._log("ADC released")
 
 
+# --- CAN via SocketCAN ---
 class RPiCAN_API(ABC):
+    """Abstract interface for CAN bus messaging."""
     @abstractmethod
-    def send_message(self, arbitration_id, data, extended_id=False):
-        """Wysyła wiadomość CAN.
-        :param arbitration_id: ID wiadomości CAN
-        :param data: dane jako bytes lub list[int]
-        :param extended_id: czy ID jest rozszerzone
-        """
-        pass
-
+    def send_message(self, arbitration_id: int, data: Union[bytes,List[int]], extended_id: bool=False) -> None: pass
     @abstractmethod
-    def receive_message(self, timeout=1.0):
-        """Odbiera wiadomość CAN z timeoutem (sekundy).
-        :return: Obiekt wiadomości CAN lub None, jeśli timeout
-        """
-        pass
-
+    def receive_message(self, timeout: float=1.0) -> Optional[can.Message]: pass
     @abstractmethod
-    def enable_logging(self):
-        pass
-
+    def enable_logging(self) -> None: pass
     @abstractmethod
-    def disable_logging(self):
-        pass
+    def disable_logging(self) -> None: pass
 
-class RPiCAN(RPiCAN_API):
-    def __init__(self, interface='can0', bitrate=500000):
-        """
-        Klasa do obsługi interfejsu CAN przez SocketCAN.
-        :param interface: Nazwa interfejsu CAN (np. 'can0').
-        :param bitrate: Prędkość magistrali CAN w bitach/s.
-        """
-        self.interface = interface
-        self.bitrate = bitrate
-        self.bus = None
+class RPiCAN(LoggingMixin, ResourceMixin, RPiCAN_API):
+    """
+    SocketCAN interface on Linux.
+    """
+    def __init__(self,
+                 interface: str='can0',
+                 bitrate: int=500000,
+                 logger: Optional[logging.Logger]=None,
+                 logging_enabled: bool=True) -> None:
+        super().__init__(logger, logging_enabled)
+        self.interface=interface
+        self.bitrate=bitrate
+        self.bus: Optional[can.Bus]=None
 
-    def get_required_resources(self):
-        """Zwraca wymagane zasoby - CAN zwykle nie używa GPIO."""
-        return {"pins": []}
+    def initialize(self) -> None:
+        """Set up CAN interface and open bus."""
+        subprocess.run(['sudo','ip','link','set',self.interface,'up','type','can',f'bitrate={self.bitrate}'],check=True)
+        self.bus=can.interface.Bus(channel=self.interface,bustype='socketcan')
+        self._log(f"CAN initialized {self.interface}@{self.bitrate}")
 
-    def initialize(self):
-        """Uruchamia interfejs CAN z podanym bitrate oraz tworzy obiekt bus."""
-        # Włącz interfejs CAN w systemie Linux
-        os.system(f'sudo ip link set {self.interface} up type can bitrate {self.bitrate}')
-        # Tworzymy obiekt CAN bus
-        self.bus = can.interface.Bus(channel=self.interface, bustype='socketcan')
+    def send_message(self, arbitration_id: int, data: Union[bytes,List[int]], extended_id: bool=False) -> None:
+        """Send a CAN message."""
+        if isinstance(data,list): data=bytes(data)
+        msg=can.Message(arbitration_id=arbitration_id,data=data,is_extended_id=extended_id)
+        self.bus.send(msg)
+        self._log(f"CAN send id={arbitration_id}, data={data}")
 
-    def send_message(self, arbitration_id, data, extended_id=False):
-        """
-        Wysyła wiadomość CAN.
-        :param arbitration_id: ID wiadomości CAN (int)
-        :param data: dane do wysłania (bytes lub lista int)
-        :param extended_id: czy ID jest rozszerzone (bool)
-        """
-        msg = can.Message(arbitration_id=arbitration_id,
-                          data=data,
-                          is_extended_id=extended_id)
-        try:
-            self.bus.send(msg)
-        except can.CanError as e:
-            raise RuntimeError(f"Błąd podczas wysyłania wiadomości CAN: {e}")
-
-    def receive_message(self, timeout=1.0):
-        """
-        Odbiera wiadomość CAN.
-        :param timeout: czas oczekiwania w sekundach (float)
-        :return: Obiekt wiadomości CAN lub None, jeśli timeout
-        """
-        msg = self.bus.recv(timeout)
+    def receive_message(self, timeout: float=1.0) -> Optional[can.Message]:
+        """Receive a CAN message with timeout."""
+        msg=self.bus.recv(timeout)
+        self._log(f"CAN received {msg}")
         return msg
 
-    def release(self):
-        """Zamyka interfejs CAN (wyłącza go w systemie)."""
-        if self.bus is not None:
+    def release(self) -> None:
+        """Shutdown CAN bus and lower interface."""
+        if self.bus:
             self.bus.shutdown()
-            self.bus = None
-        os.system(f'sudo ip link set {self.interface} down')
-    
-    def enable_logging(self):
-        self.logging_enabled = True
+        subprocess.run(['sudo','ip','link','set',self.interface,'down'],check=True)
+        self._log(f"CAN released {self.interface}")
 
-    def disable_logging(self):
-        self.logging_enabled = False
 
-    def _log(self, message):
-        if self.logging_enabled and self.logger:
-            self.logger.log(message)
-
+# --- Hardware PWM via GPIO hardware channels ---
 class RPiHardwarePWM_API(ABC):
-
+    """Abstract interface for hardware PWM outputs."""
     @abstractmethod
-    def set_duty_cycle(self, duty_cycle):
-        """Ustawia wypełnienie PWM (0-100%)."""
-        pass
-
+    def set_duty_cycle(self, duty_cycle: float) -> None: pass
     @abstractmethod
-    def set_frequency(self, frequency):
-        """Ustawia częstotliwość PWM w Hz."""
-        pass
-
+    def set_frequency(self, frequency: float) -> None: pass
     @abstractmethod
-    def enable_logging(self):
-        pass
-
+    def enable_logging(self) -> None: pass
     @abstractmethod
-    def disable_logging(self):
-        pass
+    def disable_logging(self) -> None: pass
 
-class RPiHardwarePWM(RPiHardwarePWM_API):
-    def __init__(self, pin, frequency=1000):
-        """
-        Klasa do obsługi sprzętowego PWM na Raspberry Pi.
-        :param pin: Numer pinu GPIO.
-        :param frequency: Częstotliwość sygnału PWM w Hz.
-        """
-        self.pin = pin
-        self.frequency = frequency
-        self.pwm = None
+class RPiHardwarePWM(LoggingMixin, ResourceMixin, RPiHardwarePWM_API):
+    """
+    Hardware PWM via RPi.GPIO on supported pins.
+    """
+    def __init__(self,
+                 pin: int,
+                 frequency: float = 1000.0,
+                 logger: Optional[logging.Logger]=None,
+                 logging_enabled: bool=True) -> None:
+        super().__init__(logger, logging_enabled)
+        self.pin=pin
+        self.frequency=frequency
+        self._pwm: Optional[GPIO.PWM]=None
 
-    def get_required_resources(self):
-        """Zwraca wymagane zasoby (piny GPIO)."""
-        return {"pins": [self.pin]}
+    def get_required_resources(self) -> Dict[str,List[int]]:
+        return {"pins":[self.pin]}
 
-    def initialize(self):
-        """Inicjalizuje PWM na danym pinie."""
+    def initialize(self) -> None:
+        """Start hardware PWM on pin."""
         GPIO.setmode(GPIO.BCM)
-        GPIO.setup(self.pin, GPIO.OUT)
-        self.pwm = GPIO.PWM(self.pin, self.frequency)
-        self.pwm.start(0)  # domyślnie 0% wypełnienia
+        GPIO.setup(self.pin,GPIO.OUT)
+        self._pwm=GPIO.PWM(self.pin,self.frequency)
+        self._pwm.start(0)
+        self._log(f"Hardware PWM started on pin {self.pin} at {self.frequency}Hz")
 
-    def set_duty_cycle(self, duty_cycle):
-        """
-        Ustawia wypełnienie PWM.
-        :param duty_cycle: Wypełnienie w procentach (0-100).
-        """
-        if self.pwm:
-            self.pwm.ChangeDutyCycle(duty_cycle)
+    def set_duty_cycle(self,duty_cycle:float)->None:
+        """Adjust hardware PWM duty cycle."""
+        self._pwm.ChangeDutyCycle(duty_cycle)
+        self._log(f"Hardware PWM duty_cycle set to {duty_cycle}% on pin {self.pin}")
 
-    def set_frequency(self, frequency):
-        """
-        Ustawia częstotliwość PWM.
-        :param frequency: Częstotliwość w Hz.
-        """
-        if self.pwm:
-            self.pwm.ChangeFrequency(frequency)
+    def set_frequency(self,frequency:float)->None:
+        """Adjust hardware PWM frequency."""
+        self._pwm.ChangeFrequency(frequency)
+        self._log(f"Hardware PWM frequency set to {frequency}Hz on pin {self.pin}")
 
-    def release(self):
-        """Zatrzymuje i czyści PWM."""
-        if self.pwm:
-            self.pwm.stop()
+    def release(self)->None:
+        """Stop hardware PWM and clean up."""
+        if self._pwm: self._pwm.stop()
         GPIO.cleanup(self.pin)
-
-    def enable_logging(self):
-        self.logging_enabled = True
-
-    def disable_logging(self):
-        self.logging_enabled = False
-
-    def _log(self, message):
-        if self.logging_enabled and self.logger:
-            self.logger.log(message)
-
+        self._log(f"Hardware PWM stopped and cleaned up pin {self.pin}")
