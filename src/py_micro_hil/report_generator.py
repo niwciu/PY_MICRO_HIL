@@ -103,6 +103,12 @@ class ReportGenerator:
         self._log(f"✅ HTML report generated at: {html_path}")
 
     def generate_test_code_pages(self, test_groups, html_dir):
+        """
+        Generates individual HTML pages for each test group, showing test source code.
+
+        :param test_groups: List of test group objects containing test functions.
+        :param html_dir: Path to directory where HTML files should be saved.
+        """
         for group in test_groups:
             group_name = group.name
             group_file_name = f"{group_name.replace(' ', '_').lower()}_tests.html"
@@ -113,15 +119,23 @@ class ReportGenerator:
                 if test.original_func:
                     try:
                         test_code = inspect.getsource(test.original_func)
-                        test_id = test.name.replace(" ", "_").lower()
+                        
+                        # 🔧 Tu jest poprawiony blok:
+                        import re
+                        test_id = re.sub(r'[^a-zA-Z0-9_]', '_', test.name).lower()
                         test.info = f"{group_file_name}#{test_id}"
+
+                        for entry in self.logger.log_entries:
+                            if entry.get("test_name") == test.name and entry.get("group_name") == group.name:
+                                entry["additional_info"] = test.info
+
                         test_code_entries.append({
                             "test_name": test.name,
                             "code": test_code,
                             "id": test_id,
                         })
                     except Exception as e:
-                        self._log(f"⚠\ufe0f  Could not extract source for test '{test.name}': {e}")
+                        self._log(f"⚠️  Could not extract source for test '{test.name}': {e}")
                         continue
 
             rendered = self.group_template.render(group_name=group_name, tests=test_code_entries)
