@@ -1,7 +1,6 @@
 import yaml
 import serial
 from pathlib import Path
-import RPi.GPIO as GPIO
 
 from py_micro_hil.RPiPeripherals import (
     RPiGPIO,
@@ -100,6 +99,7 @@ def load_peripheral_configuration(yaml_file=None, logger=None):
                 log_or_raise("Invalid GPIO configuration format – expected dictionary.", warning=True)
                 continue
             try:
+                GPIO = RPiGPIO.get_gpio_interface()
                 pin         = int(gpio_config["pin"])
                 mode_str    = gpio_config["mode"].upper()
                 initial_str = gpio_config.get("initial", "LOW").upper()

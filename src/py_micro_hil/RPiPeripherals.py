@@ -126,8 +126,9 @@ class RPiGPIO(LoggingMixin, ResourceMixin, RPiGPIO_API):
         for pin in self._pin_config:
             GPIO.cleanup(pin)
             self._log(f"Cleaned up pin {pin}")
-
-
+    def get_gpio_interface():
+        """  Returns GPIO interface.    """
+        return GPIO
 # --- Software PWM ---
 class RPiPWM_API(ABC):
     """Abstract interface for software PWM using RPi.GPIO."""
