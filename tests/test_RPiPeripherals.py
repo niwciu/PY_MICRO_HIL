@@ -11,10 +11,23 @@ from smbus2 import SMBus
 
 from py_micro_hil.RPiPeripherals import (
     RPiGPIO, RPiPWM, RPiUART, RPiI2C, RPiSPI,
-    RPiHardwarePWM, #RPi1Wire, RPiADC, RPiCAN,
+    RPiHardwarePWM, # RPi1Wire, RPiADC, RPiCAN,
 )
 
-# ==== Fixtures for mocks ==== 
+# --- Fix for python-can compatibility ---
+import types
+
+# Niektóre wersje python-can nie mają podmodułu 'can.interface'
+if not hasattr(can, "interface"):
+    can.interface = types.SimpleNamespace()
+
+# Upewniamy się, że można podmieniać Bus (testy to robią przez monkeypatch)
+if not hasattr(can.interface, "Bus"):
+    can.interface.Bus = lambda *args, **kwargs: None
+# --- end of compatibility fix ---
+
+
+# ==== Fixtures for mocks ====
 @pytest.fixture(autouse=True)
 def no_hardware(monkeypatch):
     # Mock GPIO
@@ -78,7 +91,7 @@ def no_hardware(monkeypatch):
     monkeypatch.setattr(subprocess, 'run', lambda *args, **kw: None)
 
 
-# ==== GPIO Tests ==== 
+# ==== GPIO Tests ====
 
 def test_gpio_write_read_toggle():
     config = {5: {'mode': GPIO.OUT, 'initial': GPIO.LOW}}

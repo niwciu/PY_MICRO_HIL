@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Union
 import RPi.GPIO as GPIO
 import spidev
 import serial
-# import can
+
 # import os
 from smbus2 import SMBus
 
