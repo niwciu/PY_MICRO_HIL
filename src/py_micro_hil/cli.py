@@ -2,6 +2,7 @@ import sys
 import os
 import importlib.util
 from pathlib import Path
+import argparse
 
 from py_micro_hil.test_framework import TestFramework
 from py_micro_hil.logger import Logger
@@ -9,26 +10,6 @@ from py_micro_hil.peripheral_manager import PeripheralManager
 from py_micro_hil.peripheral_config_loader import load_peripheral_configuration
 from py_micro_hil.test_group_factory import create_test_group_from_module
 import RPi.GPIO as GPIO
-
-
-def load_test_groups(test_directory):
-    """
-    Dynamically loads test groups from test modules in a specified directory.
-    :param test_directory: Path to the directory containing test modules.
-    :return: A list of TestGroup objects.
-    """
-    test_groups = []
-    for root, _, files in os.walk(test_directory):
-        for file in files:
-            if file.startswith("test_") and file.endswith(".py"):
-                module_path = os.path.join(root, file)
-                module_name = os.path.splitext(os.path.relpath(module_path, test_directory))[0].replace(os.sep, '.')
-                spec = importlib.util.spec_from_file_location(module_name, module_path)
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                group = create_test_group_from_module(module)
-                test_groups.append(group)
-    return test_groups
 
 
 def resolve_html_path(arg_value):
@@ -56,53 +37,109 @@ def resolve_html_path(arg_value):
     return str(output_dir / "report.html")
 
 
+def parse_args():
+    """Parse command line arguments and return structured results."""
+    parser = argparse.ArgumentParser(
+        description=(
+            "Hardware-In-the-Loop (HIL) Test Runner.\n"
+            "Automatically discovers and runs tests in the 'hil_tests' directory."
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
 
+    parser.add_argument(
+        "--log",
+        metavar="FILE",
+        help="Optional path to save the test log file (e.g. ./logs/run.log).",
+    )
+
+    parser.add_argument(
+        "--html",
+        nargs="?",
+        const=None,
+        metavar="PATH",
+        help=(
+            "Generate an HTML report.\n"
+            "If no path is given → ./html_report/report.html\n"
+            "If a directory is given → <dir>/html_report/report.html\n"
+            "If a file (.html) is given → save directly there."
+        ),
+    )
+
+    parser.add_argument(
+        "--list-tests",
+        action="store_true",
+        help="List all discovered test groups and exit without running them.",
+    )
+
+    parser.add_argument(
+        "--test-dir",
+        default=str(Path.cwd() / "hil_tests"),
+        metavar="DIR",
+        help="Path to directory containing test files (default: ./hil_tests).",
+    )
+
+    args = parser.parse_args()
+
+    # Resolve HTML path only if --html is present
+    args.html = resolve_html_path(args.html) if args.html is not None else None
+
+    return args
+
+
+def load_test_groups(test_directory):
+    """Dynamically loads test groups from test modules in a specified directory."""
+    test_groups = []
+    for root, _, files in os.walk(test_directory):
+        for file in files:
+            if file.startswith("test_") and file.endswith(".py"):
+                module_path = os.path.join(root, file)
+                module_name = os.path.splitext(os.path.relpath(module_path, test_directory))[0].replace(os.sep, '.')
+                spec = importlib.util.spec_from_file_location(module_name, module_path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                group = create_test_group_from_module(module)
+                test_groups.append(group)
+    return test_groups
 
 
 def main():
-    # Parse arguments for log and HTML report
-    log_file = None
-    html_file = None
-    if '--log' in sys.argv:
-        log_index = sys.argv.index('--log')
-        log_file = sys.argv[log_index + 1] if log_index + 1 < len(sys.argv) else None
-
-    if '--html' in sys.argv:
-        html_index = sys.argv.index('--html')
-        next_index = html_index + 1
-        html_arg = sys.argv[next_index] if next_index < len(sys.argv) and not sys.argv[next_index].startswith("--") else None
-        html_file = resolve_html_path(html_arg)
+    args = parse_args()
 
     # Initialize logger
-    logger = Logger(log_file=log_file, html_file=html_file)
+    logger = Logger(log_file=args.log, html_file=args.html)
 
-    # Initialize PeripheralManager
+    # Initialize peripherals
     peripheral_manager = PeripheralManager(devices={}, logger=logger)
     peripheral_manager.devices = load_peripheral_configuration(logger=logger)
     print(f"Discovered peripherals: {peripheral_manager.devices}")
 
-    # Initialize TestFramework
+    # Initialize test framework
     test_framework = TestFramework(peripheral_manager, logger)
 
-    # Locate test directory
-    test_directory = Path.cwd() / "hil_tests"
+    # Locate and load tests
+    test_directory = Path(args.test_dir)
     if not test_directory.exists():
         print(f"❌ Test directory '{test_directory}' does not exist.")
         sys.exit(1)
 
-    # Load test groups dynamically
     test_groups = load_test_groups(test_directory)
     print(f"Discovered test groups: {[group.name for group in test_groups]}")
 
-    # Add test groups to the framework
+    # Only list tests if requested
+    if args.list_tests:
+        print("\nAvailable test groups:")
+        for group in test_groups:
+            print(f" - {group.name}")
+        sys.exit(0)
+
+    # Add and run tests
     for group in test_groups:
         test_framework.add_test_group(group)
 
     try:
-        # Run all tests
         test_framework.run_all_tests()
     except SystemExit as e:
-        # Exit code already handled inside run_all_tests()
         sys.exit(e.code)
 
 
