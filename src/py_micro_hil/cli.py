@@ -4,11 +4,11 @@ import importlib.util
 from pathlib import Path
 import argparse
 
-from py_micro_hil.test_framework import TestFramework
+from py_micro_hil.tests_framework import TestFramework
 from py_micro_hil.logger import Logger
 from py_micro_hil.peripheral_manager import PeripheralManager
 from py_micro_hil.peripheral_config_loader import load_peripheral_configuration
-from py_micro_hil.test_group_factory import create_test_group_from_module
+from py_micro_hil.tests_group_factory import create_test_group_from_module
 
 
 def resolve_html_path(arg_value):

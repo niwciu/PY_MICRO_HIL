@@ -1,6 +1,6 @@
 import os
 import inspect
-from py_micro_hil.test_framework import TestGroup, Test
+from py_micro_hil.tests_framework import TestGroup, Test
 from py_micro_hil.assertions import set_test_context, clear_test_context
 
 

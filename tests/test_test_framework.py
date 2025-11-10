@@ -1,7 +1,7 @@
 import pytest
 from types import SimpleNamespace
 
-from py_micro_hil.test_framework import (
+from py_micro_hil.tests_framework import (
     TestFramework,
     TestGroup,
     Test,

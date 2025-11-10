@@ -3,8 +3,8 @@ import inspect
 import os
 from unittest.mock import Mock
 import pytest
-from py_micro_hil.test_framework import TestGroup
-from py_micro_hil.test_group_factory import (
+from py_micro_hil.tests_framework import TestGroup
+from py_micro_hil.tests_group_factory import (
     wrap_group_function,
     make_wrapped_test,
     add_tests_from_module,
@@ -21,8 +21,8 @@ def test_wrap_group_function_sets_context(monkeypatch):
     def mock_clear_test_context():
         call_log.append("clear")
 
-    monkeypatch.setattr("py_micro_hil.test_group_factory.set_test_context", mock_set_test_context)
-    monkeypatch.setattr("py_micro_hil.test_group_factory.clear_test_context", mock_clear_test_context)
+    monkeypatch.setattr("py_micro_hil.tests_group_factory.set_test_context", mock_set_test_context)
+    monkeypatch.setattr("py_micro_hil.tests_group_factory.clear_test_context", mock_clear_test_context)
 
     def dummy_setup():
         call_log.append("setup-ran")
@@ -46,8 +46,8 @@ def test_make_wrapped_test_calls_without_args(monkeypatch):
     def mock_clear_test_context():
         call_log.append("clear")
 
-    monkeypatch.setattr("py_micro_hil.test_group_factory.set_test_context", mock_set_test_context)
-    monkeypatch.setattr("py_micro_hil.test_group_factory.clear_test_context", mock_clear_test_context)
+    monkeypatch.setattr("py_micro_hil.tests_group_factory.set_test_context", mock_set_test_context)
+    monkeypatch.setattr("py_micro_hil.tests_group_factory.clear_test_context", mock_clear_test_context)
 
     def dummy_test():
         call_log.append("test-called")
@@ -70,8 +70,8 @@ def test_make_wrapped_test_calls_with_args(monkeypatch):
     def mock_clear_test_context():
         call_log.append("clear")
 
-    monkeypatch.setattr("py_micro_hil.test_group_factory.set_test_context", mock_set_test_context)
-    monkeypatch.setattr("py_micro_hil.test_group_factory.clear_test_context", mock_clear_test_context)
+    monkeypatch.setattr("py_micro_hil.tests_group_factory.set_test_context", mock_set_test_context)
+    monkeypatch.setattr("py_micro_hil.tests_group_factory.clear_test_context", mock_clear_test_context)
 
     def dummy_test(framework):
         call_log.append("called-with-fw")
