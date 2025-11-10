@@ -1,16 +1,34 @@
-import logging
-# import subprocess
-# import glob
-# import time
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
+import sys
+import types
+import platform
+
+def is_raspberry_pi() -> bool:
+    """Check if we are running on a Raspberry Pi."""
+    try:
+        with open("/proc/device-tree/model", "r") as f:
+            model = f.read().lower()
+        return "raspberry pi" in model
+    except Exception:
+        return False
+
+ON_RPI = is_raspberry_pi()
+
+if not ON_RPI:
+    print("[INFO] Running outside Raspberry Pi — using dummy hardware interfaces.")
+    from py_micro_hil import dummyRPiPeripherals as mock
+    sys.modules["RPi.GPIO"] = mock.GPIO
+    sys.modules["spidev"] = mock.spidev
+    sys.modules["smbus2"] = type("smbus2", (), {"SMBus": mock.SMBus})
+    sys.modules["serial"] = mock.serial
 
 import RPi.GPIO as GPIO
 import spidev
 import serial
-
-# import os
 from smbus2 import SMBus
+
+import logging
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional, Union
 
 
 # Mixins for logging and resource management
