@@ -31,8 +31,13 @@ def context():
     assertions.clear_test_context()
 
 
+# ---------------------------------------------------------------------
+# Basic assertions with active context
+# ---------------------------------------------------------------------
+
 def test_test_assert_equal_pass(context):
-    assertions.TEST_ASSERT_EQUAL(5, 5)
+    result = assertions.TEST_ASSERT_EQUAL(5, 5)
+    assert result is None
     assert context.results[-1]["passed"] is True
 
 
@@ -44,7 +49,8 @@ def test_test_assert_equal_fail(context):
 
 
 def test_test_assert_true_pass(context):
-    assertions.TEST_ASSERT_TRUE(True)
+    result = assertions.TEST_ASSERT_TRUE(True)
+    assert result is None
     assert context.results[-1]["passed"] is True
 
 
@@ -68,17 +74,45 @@ def test_test_assert_in_fail(context):
 
 
 def test_test_info_message(context):
-    assertions.TEST_INFO_MESSAGE("This is info")
+    result = assertions.TEST_INFO_MESSAGE("This is info")
+    assert result is None
     info = context.infos[-1]
     assert info["message"] == "This is info"
 
 
 def test_test_fail_message(context):
-    assertions.TEST_FAIL_MESSAGE("Custom failure")
+    result = assertions.TEST_FAIL_MESSAGE("Custom failure")
+    assert result is None
+    result_data = context.results[-1]
+    assert result_data["passed"] is False
+    assert result_data["message"] == "Custom failure"
+
+
+# ---------------------------------------------------------------------
+# Edge cases: exceptions inside assertions
+# ---------------------------------------------------------------------
+
+def test_assert_equal_raises_comparison_error(context):
+    class Bad:
+        def __eq__(self, other):
+            raise RuntimeError("boom")
+    assertions.TEST_ASSERT_EQUAL(Bad(), Bad())
     result = context.results[-1]
     assert result["passed"] is False
-    assert result["message"] == "Custom failure"
+    assert "Comparison error" in result["message"]
 
+
+def test_assert_in_raises_type_error(context):
+    # Collection is not iterable
+    assertions.TEST_ASSERT_IN("x", None)
+    result = context.results[-1]
+    assert result["passed"] is False
+    assert "Membership check failed" in result["message"]
+
+
+# ---------------------------------------------------------------------
+# Behavior without framework context
+# ---------------------------------------------------------------------
 
 def test_assert_equal_without_context():
     result = assertions.TEST_ASSERT_EQUAL(1, 2, context={})
@@ -103,3 +137,28 @@ def test_info_message_without_context():
 def test_fail_message_without_context():
     result = assertions.TEST_FAIL_MESSAGE("fail ctx", context={})
     assert result == ("TEST_FAIL_MESSAGE", "fail ctx")
+
+
+# ---------------------------------------------------------------------
+# Context management
+# ---------------------------------------------------------------------
+
+def test_set_and_clear_context():
+    fw = MockFramework()
+    assertions.set_test_context(fw, "GroupX", "TestY")
+    ctx = assertions._get_context()
+    assert ctx["framework"] is fw
+    assert ctx["group_name"] == "GroupX"
+    assert ctx["test_name"] == "TestY"
+
+    assertions.clear_test_context()
+    cleared = assertions._get_context()
+    assert cleared["framework"] is None
+    assert cleared["group_name"] is None
+    assert cleared["test_name"] is None
+
+
+def test_get_context_from_dict():
+    manual = {"framework": "F", "group_name": "G", "test_name": "T"}
+    ctx = assertions._get_context(manual)
+    assert ctx == manual

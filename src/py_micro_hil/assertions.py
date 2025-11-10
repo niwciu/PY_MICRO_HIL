@@ -1,12 +1,21 @@
+# pylint: disable=...
 from contextvars import ContextVar
+from typing import Optional, Any, Dict, Tuple
 
-# Create context variables
-_current_framework = ContextVar("framework", default=None)
-_current_group_name = ContextVar("group_name", default=None)
-_current_test_name = ContextVar("test_name", default=None)
+# ---------------------------------------------------------------------
+# Context variables for active test state
+# ---------------------------------------------------------------------
+
+_current_framework: ContextVar[Optional[Any]] = ContextVar("framework", default=None)
+_current_group_name: ContextVar[Optional[str]] = ContextVar("group_name", default=None)
+_current_test_name: ContextVar[Optional[str]] = ContextVar("test_name", default=None)
 
 
-def set_test_context(framework, group_name, test_name):
+# ---------------------------------------------------------------------
+# Context management
+# ---------------------------------------------------------------------
+
+def set_test_context(framework: Any, group_name: str, test_name: str) -> None:
     """
     Sets the global test context.
     :param framework: The test framework instance.
@@ -18,7 +27,7 @@ def set_test_context(framework, group_name, test_name):
     _current_test_name.set(test_name)
 
 
-def clear_test_context():
+def clear_test_context() -> None:
     """
     Clears the global test context.
     """
@@ -27,24 +36,34 @@ def clear_test_context():
     _current_test_name.set(None)
 
 
-def _get_context(context=None):
+def _get_context(context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Retrieve the active context, either from a provided dict or the ContextVars.
+    """
+    if context:
+        return context
     return {
-        "framework": context.get("framework") if context else _current_framework.get(),
-        "group_name": context.get("group_name") if context else _current_group_name.get(),
-        "test_name": context.get("test_name") if context else _current_test_name.get(),
+        "framework": _current_framework.get(),
+        "group_name": _current_group_name.get(),
+        "test_name": _current_test_name.get(),
     }
 
 
-def _report_result(ctx, passed, message=None):
+# ---------------------------------------------------------------------
+# Internal reporting helpers
+# ---------------------------------------------------------------------
+
+def _report_result(ctx: Dict[str, Any], passed: bool, message: Optional[str] = None) -> bool:
     ctx["framework"].report_test_result(
         ctx["group_name"],
         ctx["test_name"],
         passed,
         message
     )
+    return passed
 
 
-def _report_info(ctx, message):
+def _report_info(ctx: Dict[str, Any], message: str) -> None:
     ctx["framework"].report_test_info(
         ctx["group_name"],
         ctx["test_name"],
@@ -52,77 +71,81 @@ def _report_info(ctx, message):
     )
 
 
-def TEST_FAIL_MESSAGE(message, context=None):
+# ---------------------------------------------------------------------
+# Assertion helpers
+# ---------------------------------------------------------------------
+
+def TEST_FAIL_MESSAGE(message: str, context: Optional[Dict[str, Any]] = None) -> Optional[Tuple[str, str]]:
     """
-    Assertion that reports test failure with a given message.
-    If the context is available, it reports via the framework.
-    Otherwise, it returns a symbolic representation for deferred execution.
+    Reports a test failure with the given message.
+    If the framework context exists, logs via framework; otherwise returns a symbolic tuple.
     """
     ctx = _get_context(context)
     if ctx["framework"]:
         _report_result(ctx, False, message)
-    else:
-        return ("TEST_FAIL_MESSAGE", message)
+        return None
+    return ("TEST_FAIL_MESSAGE", message)
 
 
-def TEST_INFO_MESSAGE(message, context=None):
+def TEST_INFO_MESSAGE(message: str, context: Optional[Dict[str, Any]] = None) -> Optional[Tuple[str, str]]:
     """
     Logs an informational message.
-    If the context is available, it logs via the framework.
-    Otherwise, it returns a symbolic representation for deferred execution.
+    If the framework context exists, logs via framework; otherwise returns a symbolic tuple.
     """
     ctx = _get_context(context)
     if ctx["framework"]:
         _report_info(ctx, message)
-    else:
-        return ("TEST_INFO_MESSAGE", message)
+        return None
+    return ("TEST_INFO_MESSAGE", message)
 
 
-def TEST_ASSERT_EQUAL(expected, actual, context=None):
+def TEST_ASSERT_EQUAL(expected: Any, actual: Any, context: Optional[Dict[str, Any]] = None) -> Optional[Tuple[str, Any, Any]]:
     """
-    Symbolic assertion that checks equality.
-    :param expected: The expected value.
-    :param actual: The actual value.
-    :param context: (Optional) A dict containing the framework, group and test name.
+    Asserts that expected == actual.
+    Reports via framework if context is active, otherwise returns a symbolic representation.
     """
     ctx = _get_context(context)
     if ctx["framework"]:
-        if expected != actual:
-            _report_result(ctx, False, f"Assertion failed! Expected = {expected}, actual = {actual}")
-        else:
-            _report_result(ctx, True)
-    else:
-        return ("TEST_ASSERT_EQUAL", actual, expected)
+        try:
+            if expected != actual:
+                _report_result(ctx, False, f"Assertion failed! Expected = {expected}, actual = {actual}")
+            else:
+                _report_result(ctx, True)
+        except Exception as e:
+            _report_result(ctx, False, f"Comparison error: {e}")
+        return None
+    return ("TEST_ASSERT_EQUAL", actual, expected)
 
 
-def TEST_ASSERT_TRUE(condition, context=None):
+def TEST_ASSERT_TRUE(condition: Any, context: Optional[Dict[str, Any]] = None) -> Optional[Tuple[str, Any]]:
     """
-    Symbolic assertion that checks if a condition is true.
-    :param condition: The condition to evaluate.
-    :param context: (Optional) A dict containing the framework, group and test name.
+    Asserts that condition is True.
+    Reports via framework if context is active, otherwise returns a symbolic representation.
     """
     ctx = _get_context(context)
     if ctx["framework"]:
-        if not condition:
+        passed = bool(condition)
+        if not passed:
             _report_result(ctx, False, "Assertion failed: condition is not true")
         else:
             _report_result(ctx, True)
-    else:
-        return ("TEST_ASSERT_TRUE", condition)
+        return None
+    return ("TEST_ASSERT_TRUE", condition)
 
 
-def TEST_ASSERT_IN(item, collection, context=None):
+def TEST_ASSERT_IN(item: Any, collection: Any, context: Optional[Dict[str, Any]] = None) -> Optional[Tuple[str, Any, Any]]:
     """
-    Symbolic assertion that checks if an item is in a collection.
-    :param item: The item to look for.
-    :param collection: The collection to search.
-    :param context: (Optional) A dict containing the framework, group and test name.
+    Asserts that an item is present in the collection.
+    Reports via framework if context is active, otherwise returns a symbolic representation.
     """
     ctx = _get_context(context)
     if ctx["framework"]:
-        if item not in collection:
-            _report_result(ctx, False, f"Assertion failed: {item} not in {collection}")
-        else:
-            _report_result(ctx, True)
-    else:
-        return ("TEST_ASSERT_IN", item, collection)
+        try:
+            if item not in collection:
+                _report_result(ctx, False, f"Assertion failed: {item} not in {collection}")
+            else:
+                _report_result(ctx, True)
+        except Exception as e:
+            _report_result(ctx, False, f"Membership check failed: {e}")
+        return None
+    return ("TEST_ASSERT_IN", item, collection)
