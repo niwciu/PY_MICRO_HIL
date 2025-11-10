@@ -1,8 +1,7 @@
 # pylint: disable=...
 from __future__ import annotations
-import sys
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List, Optional
 
 from py_micro_hil.logger import Logger
 from py_micro_hil.report_generator import ReportGenerator
@@ -88,14 +87,18 @@ class TestFramework:
                 raise AttributeError("peripheral_manager missing 'release_all' method")
             rel()
         except Exception as e:
-            self.logger.log(f"[WARNING] During peripherals cleanup: {e}", to_console=True)
+            self.logger.log(f"[ERROR] During peripherals cleanup: {e}", to_console=True)
 
         # --- Summary ---
         self.print_summary()
 
         # --- Generate HTML report if enabled ---
         if getattr(self.logger, 'html_file', None):
-            self.report_generator.generate(self.test_groups)
+            try:
+                self.report_generator.generate(self.test_groups)
+            except Exception as e:
+                self.logger.log(f"[ERROR] Report generation failed: {e}", to_console=True)
+
 
         return self.fail_count
 
@@ -212,6 +215,7 @@ class TestGroup:
                 self.setup(framework)
             except Exception as e:
                 framework.logger.log(f"[ERROR] Setup for group '{self.name}' failed: {e}", to_console=True)
+                framework.fail_count += 1
 
         # Tests
         for test in self.tests:
@@ -223,6 +227,8 @@ class TestGroup:
                 self.teardown(framework)
             except Exception as e:
                 framework.logger.log(f"[WARNING] Teardown for group '{self.name}' raised: {e}", to_console=True)
+                framework.fail_count += 1
+        framework.logger.log(f"[INFO] Finished test group: {self.name}", to_console=True)
 
 
 class Test:

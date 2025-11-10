@@ -75,13 +75,22 @@ def test_peripheral_is_abstract():
 def test_missing_initialize_all_method(fake_logger):
     mgr = IncompleteManager()
     fx = TestFramework(mgr, fake_logger)
-    # brak initialize_all -> fail_count + 1
     result = fx.run_all_tests()
     assert result == 1
     assert any("missing 'initialize_all'" in msg[0] for msg in fake_logger.entries)
 
 
-def test_missing_release_all_logs_warning(fake_logger):
+def test_initialize_all_exception(fake_logger):
+    class Mgr:
+        def initialize_all(self): raise RuntimeError("initfail")
+    mgr = Mgr()
+    fx = TestFramework(mgr, fake_logger)
+    result = fx.run_all_tests()
+    assert result == 1
+    assert any("initfail" in msg[0] for msg in fake_logger.entries)
+
+
+def test_missing_release_all_method(fake_logger):
     class Mgr:
         def initialize_all(self): pass
     mgr = Mgr()
@@ -90,32 +99,11 @@ def test_missing_release_all_logs_warning(fake_logger):
     result = fx.run_all_tests()
     assert result == 0
     assert any("RESOURCE CLEANUP" in m[0] for m in fake_logger.entries)
+    # brak release_all -> ERROR log
+    assert any("missing 'release_all'" in m[0] for m in fake_logger.entries)
 
 
-def test_run_all_tests_success(peripheral_manager, fake_logger):
-    fx = TestFramework(peripheral_manager, fake_logger)
-    grp = TestGroup('G')
-    grp.add_test(Test('T', lambda fr: None))
-    fx.add_test_group(grp)
-    result = fx.run_all_tests()
-    assert result == 0
-    assert peripheral_manager.initialized
-    assert peripheral_manager.released
-    assert any("TEST SUMMARY" in m[0] for m in fake_logger.entries)
-
-
-def test_run_all_tests_initialization_exception(fake_logger):
-    class Mgr:
-        def initialize_all(self):
-            raise RuntimeError("initfail")
-    mgr = Mgr()
-    fx = TestFramework(mgr, fake_logger)
-    result = fx.run_all_tests()
-    assert result == 1
-    assert any("initfail" in m[0] for m in fake_logger.entries)
-
-
-def test_cleanup_raises_warning(fake_logger):
+def test_cleanup_raises_exception(fake_logger):
     class Mgr:
         def initialize_all(self): pass
         def release_all(self): raise RuntimeError("boom")
@@ -127,17 +115,38 @@ def test_cleanup_raises_warning(fake_logger):
     assert any("During peripherals cleanup" in m[0] for m in fake_logger.entries)
 
 
+def test_run_all_tests_success(peripheral_manager, fake_logger):
+    fx = TestFramework(peripheral_manager, fake_logger)
+    grp = TestGroup("G")
+    grp.add_test(Test("T", lambda fr: None))
+    fx.add_test_group(grp)
+    result = fx.run_all_tests()
+    assert result == 0
+    assert peripheral_manager.initialized
+    assert peripheral_manager.released
+    assert any("TEST SUMMARY" in m[0] for m in fake_logger.entries)
+
+
+def test_report_generation_failure(fake_logger, peripheral_manager, monkeypatch):
+    fake_logger.html_file = "file.html"
+    fx = TestFramework(peripheral_manager, fake_logger)
+    grp = TestGroup("G")
+    fx.add_test_group(grp)
+    monkeypatch.setattr(fx.report_generator, "generate", lambda _: (_ for _ in ()).throw(RuntimeError("repfail")))
+    fx.run_all_tests()
+    assert any("Report generation failed" in m[0] for m in fake_logger.entries)
+
+
 # ---------------------------------------------------------------------
 # Reporting
 # ---------------------------------------------------------------------
 
 def test_report_test_result_and_summary(framework, fake_logger):
-    framework.report_test_result('G', 't1', True)
-    framework.report_test_result('G', 't2', False, 'err')
+    framework.report_test_result("G", "t1", True)
+    framework.report_test_result("G", "t2", False, "err")
     assert framework.total_tests == 2
     assert framework.pass_count == 1
     assert framework.fail_count == 1
-
     framework.print_summary()
     summary = fake_logger.entries[-1][0]
     assert "Total Tests Run" in summary
@@ -154,8 +163,18 @@ def test_report_test_result_with_html(fake_logger, peripheral_manager):
 
 
 def test_report_test_info(framework, fake_logger):
-    framework.report_test_info('G', 'T', 'informacja')
-    assert any('informacja' in e[0] for e in fake_logger.entries)
+    framework.report_test_info("G", "T", "informacja")
+    assert any("informacja" in e[0] for e in fake_logger.entries)
+
+
+def test_print_summary_logs_to_file(fake_logger, peripheral_manager):
+    fake_logger.log_file = True
+    fx = TestFramework(peripheral_manager, fake_logger)
+    fx.total_tests = 3
+    fx.pass_count = 2
+    fx.fail_count = 1
+    fx.print_summary()
+    assert any("Total Tests Run" in e[0] for e in fake_logger.entries)
 
 
 # ---------------------------------------------------------------------
@@ -173,10 +192,9 @@ def test_TestGroup_setup_teardown_and_run(framework, fake_logger):
     grp.set_setup(setup)
     grp.set_teardown(teardown)
     grp.add_test(Test("t1", test_func))
-
     grp.run_tests(framework)
     assert order == ["setup", "test", "teardown"]
-    assert any("Running test group" in e[0] for e in fake_logger.entries)
+    assert any("Finished test group" in e[0] for e in fake_logger.entries)
 
 
 def test_TestGroup_setup_exception_logged(framework, fake_logger):
@@ -185,6 +203,7 @@ def test_TestGroup_setup_exception_logged(framework, fake_logger):
     grp.set_setup(setup)
     grp.run_tests(framework)
     assert any("Setup for group" in e[0] for e in fake_logger.entries)
+    assert framework.fail_count > 0
 
 
 def test_TestGroup_teardown_exception_logged(framework, fake_logger):
@@ -193,6 +212,7 @@ def test_TestGroup_teardown_exception_logged(framework, fake_logger):
     grp.set_teardown(teardown)
     grp.run_tests(framework)
     assert any("Teardown for group" in e[0] for e in fake_logger.entries)
+    assert framework.fail_count > 0
 
 
 # ---------------------------------------------------------------------
