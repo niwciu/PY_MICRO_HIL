@@ -1,5 +1,5 @@
 from py_micro_hil.assertions import _current_framework
-from py_micro_hil.RPiPeripherals import (
+from py_micro_hil.peripherals.RPiPeripherals import (
     RPiUART_API, RPiGPIO_API, RPiPWM_API, RPiI2C_API,
     RPiSPI_API, RPiHardwarePWM_API
 )

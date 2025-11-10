@@ -5,7 +5,7 @@ from pathlib import Path
 from py_micro_hil.peripheral_config_loader import (
     load_peripheral_configuration,
 )
-from py_micro_hil.RPiPeripherals import (
+from py_micro_hil.peripherals.RPiPeripherals import (
     RPiGPIO, RPiPWM, RPiUART, RPiI2C, RPiSPI,
     RPiHardwarePWM,# RPi1Wire, RPiADC, RPiCAN,
 )

@@ -1,8 +1,7 @@
 import yaml
 import serial
 from pathlib import Path
-from py_micro_hil import utils
-from py_micro_hil.RPiPeripherals import (
+from py_micro_hil.peripherals.RPiPeripherals import (
     RPiGPIO,
     RPiPWM,
     RPiUART,
@@ -12,7 +11,6 @@ from py_micro_hil.RPiPeripherals import (
 )
 from py_micro_hil.protocols import ModbusRTU
 
-ON_RPI = utils.is_raspberry_pi()
 
 def load_peripheral_configuration(yaml_file=None, logger=None):
     """

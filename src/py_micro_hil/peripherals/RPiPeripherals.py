@@ -1,11 +1,11 @@
 import sys
-from py_micro_hil import utils
+from py_micro_hil.utils.system import is_raspberry_pi
 
-ON_RPI = utils.is_raspberry_pi()
+ON_RPI = is_raspberry_pi()
 
 if not ON_RPI:
     print("[INFO] Running outside Raspberry Pi — using dummy hardware interfaces.")
-    from py_micro_hil import dummyRPiPeripherals as mock
+    from py_micro_hil.peripherals import dummyRPiPeripherals as mock
     sys.modules["RPi.GPIO"] = mock.GPIO
     sys.modules["spidev"] = mock.spidev
     sys.modules["smbus2"] = type("smbus2", (), {"SMBus": mock.SMBus})

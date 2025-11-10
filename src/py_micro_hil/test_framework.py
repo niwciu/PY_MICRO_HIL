@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from py_micro_hil.logger import Logger
 from py_micro_hil.report_generator import ReportGenerator
-from py_micro_hil import utils
+from py_micro_hil.utils.system import is_raspberry_pi
 
 
 class Peripheral(ABC):
@@ -56,7 +56,7 @@ class TestFramework:
         """
         # Initialization phase
         self.logger.log("\n=================== INITIALIZATION ===================", to_console=True)
-        if not utils.is_raspberry_pi():
+        if not is_raspberry_pi():
             self.logger.log(f"\n[WARNING] Framwork runned outside of Raspberry Pi. All RPi hardware modules will be mocked")
         try:
             init = getattr(self.peripheral_manager, 'initialize_all', None)

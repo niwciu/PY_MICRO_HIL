@@ -1,47 +1,46 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "py_micro_hil"
+name = "py-micro-hil"
 version = "0.1.0"
-description = "Python-based HIL test framework"
+description = "Hardware-in-the-Loop testing framework"
 readme = "README.md"
-license = { file = "LICENSE" }
-authors = [
-  { name = "Twoje Imię", email = "twojemail@example.com" }
-]
 requires-python = ">=3.8"
-
-dependencies = [
-  "PyYAML>=5.4.1",
-  "rich>=12.0",
-  "RPi.GPIO",
-  "termcolor",
-  "pymodbus>=2.5.0",
-  "pyserial",
-  "smbus2",
-  "spidev",
-  "can",
-  "jinja2"
+license = { text = "MIT" }
+authors = [
+    { name = "niwciu", email = "niwciu@gmail.com" }
 ]
+dependencies = [
+    "pyserial",
+    "smbus2",
+    "jinja2"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "flake8",
+    "black",
+    "build",
+    "twine"
+]
+
+[project.urls]
+Homepage = "https://github.com/sandra/py-micro-hil"
+Repository = "https://github.com/sandra/py-micro-hil"
+Issues = "https://github.com/sandra/py-micro-hil/issues"
 
 [project.scripts]
 hiltest = "py_micro_hil.cli:main"
 
-[project.optional-dependencies]
-dev = [
-  "pytest",
-  "pytest-cov",
-  "mypy",
-  "flake8",
-  "black",
-  "isort",
-  "coverage"
-]
+[tool.black]
+line-length = 100
 
-[tool.setuptools]
-package-dir = {"" = "src"}
+[tool.flake8]
+max-line-length = 100
+ignore = ["E203", "W503"]
 
-[tool.setuptools.package-data]
-"py_micro_hil" = ["templates/*.html"]
+[tool.pytest.ini_options]
+testpaths = ["tests"]

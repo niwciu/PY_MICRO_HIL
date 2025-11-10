@@ -3,19 +3,21 @@ from unittest.mock import mock_open, MagicMock, patch
 import subprocess
 import glob
 
-import RPi.GPIO as GPIO
+# import RPi.GPIO as GPIO
 import spidev
 import serial
 import can
 from smbus2 import SMBus
 
-from py_micro_hil.RPiPeripherals import (
+from py_micro_hil.peripherals.RPiPeripherals import (
     RPiGPIO, RPiPWM, RPiUART, RPiI2C, RPiSPI,
     RPiHardwarePWM, # RPi1Wire, RPiADC, RPiCAN,
 )
 
 # --- Fix for python-can compatibility ---
 import types
+
+GPIO = RPiGPIO.get_gpio_interface()
 
 # Niektóre wersje python-can nie mają podmodułu 'can.interface'
 if not hasattr(can, "interface"):
