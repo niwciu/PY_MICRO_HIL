@@ -9,7 +9,7 @@ from py_micro_hil.peripherals.RPiPeripherals import (
     RPiGPIO, RPiPWM, RPiUART, RPiI2C, RPiSPI,
     RPiHardwarePWM,# RPi1Wire, RPiADC, RPiCAN,
 )
-from py_micro_hil.protocols import ModbusRTU
+from py_micro_hil.peripherals.modbus import ModbusRTU
 
 
 class DummyLogger:

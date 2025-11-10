@@ -3,7 +3,7 @@ from py_micro_hil.peripherals.RPiPeripherals import (
     RPiUART_API, RPiGPIO_API, RPiPWM_API, RPiI2C_API,
     RPiSPI_API, RPiHardwarePWM_API
 )
-from py_micro_hil.protocols import ModbusRTU_API
+from py_micro_hil.peripherals.modbus import ModbusRTU_API
 
 
 def _get_framework():

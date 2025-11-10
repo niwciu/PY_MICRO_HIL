@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from py_micro_hil.protocols import ModbusRTU
+from py_micro_hil.peripherals.modbus import ModbusRTU
 
 @pytest.fixture
 def modbus_rtu():

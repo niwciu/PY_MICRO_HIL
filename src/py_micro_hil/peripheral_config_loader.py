@@ -9,7 +9,7 @@ from py_micro_hil.peripherals.RPiPeripherals import (
     RPiSPI,
     RPiHardwarePWM,
 )
-from py_micro_hil.protocols import ModbusRTU
+from py_micro_hil.peripherals.modbus import ModbusRTU
 from py_micro_hil.utils.system import is_raspberry_pi
 
 
