@@ -48,16 +48,21 @@ class TestFramework:
         """Add a TestGroup to be executed."""
         self.test_groups.append(group)
 
-    def run_all_tests(self) -> None:
+    def run_all_tests(self) -> int:
         """
         Initialize peripherals, run all test groups, clean up resources,
         and then print summary and generate report.
-        Exits with sys.exit(1) if any test failed.
+        Returns number of failed tests.
         """
-        # Initialization phase
         self.logger.log("\n=================== INITIALIZATION ===================", to_console=True)
         if not is_raspberry_pi():
-            self.logger.log(f"\n[WARNING] Framwork runned outside of Raspberry Pi. All RPi hardware modules will be mocked")
+            self.logger.log(
+                "\n[WARNING] Framework running outside Raspberry Pi. "
+                "Hardware peripherals will be mocked.",
+                to_console=True
+            )
+
+        # --- Initialization phase ---
         try:
             init = getattr(self.peripheral_manager, 'initialize_all', None)
             if not callable(init):
@@ -66,14 +71,16 @@ class TestFramework:
         except Exception as e:
             self.logger.log(f"[ERROR] During peripherals initialization: {e}", to_console=True)
             self.logger.log("Aborting tests.", to_console=True)
-            sys.exit(1)
+            # oznacz błędy, ale nie wychodź z procesu
+            self.fail_count += 1
+            return self.fail_count   # brak print_summary() – jak w poprzedniej logice
 
-        # Test execution phase
+        # --- Test execution phase ---
         self.logger.log("\n=================== TEST EXECUTION ===================", to_console=True)
         for group in self.test_groups:
             group.run_tests(self)
 
-        # Cleanup phase
+        # --- Cleanup phase ---
         self.logger.log("\n==================== RESOURCE CLEANUP ====================", to_console=True)
         try:
             rel = getattr(self.peripheral_manager, 'release_all', None)
@@ -83,16 +90,14 @@ class TestFramework:
         except Exception as e:
             self.logger.log(f"[WARNING] During peripherals cleanup: {e}", to_console=True)
 
-        # Summary
+        # --- Summary ---
         self.print_summary()
 
-        # Generate HTML report if enabled
+        # --- Generate HTML report if enabled ---
         if getattr(self.logger, 'html_file', None):
             self.report_generator.generate(self.test_groups)
 
-        # Exit with error if any failures
-        if self.fail_count > 0:
-            sys.exit(1)
+        return self.fail_count
 
     def print_summary(self) -> None:
         """

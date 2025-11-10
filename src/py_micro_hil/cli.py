@@ -95,17 +95,12 @@ def parse_args():
     args.html = resolve_html_path(args.html) if args.html is not None else None
 
     # Normalize YAML path (if provided)
-    if args.config:
-        config_path = Path(args.config)
-        # interpret relative paths relative to current working directory
-        if not config_path.is_absolute():
-            config_path = Path.cwd() / config_path
-        args.config = str(config_path.resolve())
+    args.config = str(Path(args.config).resolve()) if args.config else None
 
     return args
 
 
-def load_test_groups(test_directory):
+def load_test_groups(test_directory, logger):
     """Dynamically loads test groups from test modules in a specified directory."""
     test_groups = []
     for root, _, files in os.walk(test_directory):
@@ -115,9 +110,12 @@ def load_test_groups(test_directory):
                 module_name = os.path.splitext(os.path.relpath(module_path, test_directory))[0].replace(os.sep, '.')
                 spec = importlib.util.spec_from_file_location(module_name, module_path)
                 module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                group = create_test_group_from_module(module)
-                test_groups.append(group)
+                try:
+                    spec.loader.exec_module(module)
+                    group = create_test_group_from_module(module)
+                    test_groups.append(group)
+                except Exception as e:
+                    logger.log(f"[WARN] Skipping {module_path}: {e}", to_console=True, to_log_file=True)
     return test_groups
 
 
@@ -155,24 +153,29 @@ def main():
         logger.log(f"[ERROR] ❌ Test directory '{test_directory}' does not exist.", to_console=True, to_log_file=True)
         sys.exit(1)
 
-    test_groups = load_test_groups(test_directory)
-    logger.log(f"[INFO] Discovered test groups: {[group.name for group in test_groups]}", to_console=True)
+    test_groups = load_test_groups(test_directory, logger)
+    logger.log(f"[INFO] Loaded {len(test_groups)} test groups from '{test_directory}'", to_console=True)
+
 
     # Only list tests if requested
     if args.list_tests:
-        print("\nAvailable test groups:")
+        logger.log("\nAvailable test groups:", to_console=True)
         for group in test_groups:
-            print(f" - {group.name}")
+            logger.log(f" - {group.name}", to_console=True)
         sys.exit(0)
+
 
     # Add and run tests
     for group in test_groups:
         test_framework.add_test_group(group)
 
     try:
-        test_framework.run_all_tests()
-    except SystemExit as e:
-        sys.exit(e.code)
+        num_failures = test_framework.run_all_tests()
+    except Exception as e:
+        logger.log(f"[ERROR] Unexpected error during test execution: {e}", to_console=True, to_log_file=True)
+        sys.exit(1)
+
+    sys.exit(1 if num_failures else 0)
 
 
 if __name__ == "__main__":
