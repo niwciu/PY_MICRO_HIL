@@ -1,17 +1,7 @@
 import sys
-import types
-import platform
+from py_micro_hil import utils
 
-def is_raspberry_pi() -> bool:
-    """Check if we are running on a Raspberry Pi."""
-    try:
-        with open("/proc/device-tree/model", "r") as f:
-            model = f.read().lower()
-        return "raspberry pi" in model
-    except Exception:
-        return False
-
-ON_RPI = is_raspberry_pi()
+ON_RPI = utils.is_raspberry_pi()
 
 if not ON_RPI:
     print("[INFO] Running outside Raspberry Pi — using dummy hardware interfaces.")

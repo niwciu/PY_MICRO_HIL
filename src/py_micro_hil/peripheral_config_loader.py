@@ -1,7 +1,7 @@
 import yaml
 import serial
 from pathlib import Path
-
+from py_micro_hil import utils
 from py_micro_hil.RPiPeripherals import (
     RPiGPIO,
     RPiPWM,
@@ -12,6 +12,7 @@ from py_micro_hil.RPiPeripherals import (
 )
 from py_micro_hil.protocols import ModbusRTU
 
+ON_RPI = utils.is_raspberry_pi()
 
 def load_peripheral_configuration(yaml_file=None, logger=None):
     """
@@ -73,7 +74,7 @@ def load_peripheral_configuration(yaml_file=None, logger=None):
         else:
             log_or_raise("Invalid configuration for Modbus – expected dictionary.", warning=True)
 
-    # --- UART ---
+     # --- UART ---
     parity_map   = {"N": serial.PARITY_NONE, "E": serial.PARITY_EVEN, "O": serial.PARITY_ODD}
     stopbits_map = {1: serial.STOPBITS_ONE, 2: serial.STOPBITS_TWO}
 
