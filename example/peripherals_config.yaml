@@ -1,10 +1,10 @@
 protocols:
-  modbus:
-    port: /dev/ttyUSB0
-    baudrate: 115200
-    parity: N
-    stop_bits: 1
-    timeout: 2
+  # modbus:
+  #   port: /dev/ttyUSB0
+  #   baudrate: 115200
+  #   parity: N
+  #   stop_bits: 1
+  #   timeout: 2
 
 peripherals:
   # --- Digital I/O ---
