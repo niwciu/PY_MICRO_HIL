@@ -2,52 +2,95 @@ import pytest
 from unittest.mock import patch, MagicMock
 from py_micro_hil.peripherals.modbus import ModbusRTU
 
+
 @pytest.fixture
 def modbus_rtu():
     return ModbusRTU(port="/dev/ttyUSB1", baudrate=9600, stopbits=2, parity='E', timeout=2)
 
+
+# === Initialization / Release ===
+
 def test_initialization_and_release():
-    modbus = ModbusRTU()
-    with patch("py_micro_hil.protocols.ModbusClient") as mock_client:
-        instance = mock_client.return_value
-        instance.connect.return_value = True
+    with patch("py_micro_hil.peripherals.modbus.ModbusClient") as mock_client_class:
+        mock_client = mock_client_class.return_value
+        mock_client.connect.return_value = True
+
+        modbus = ModbusRTU(port="/dev/ttyUSB0")
         modbus.initialize()
-        assert modbus.client is not None
+
+        mock_client_class.assert_called_once_with(
+            port="/dev/ttyUSB0",
+            baudrate=115200,
+            stopbits=1,
+            parity='N',
+            timeout=1
+        )
+        assert modbus.client is mock_client
         assert modbus.client.connect.called
-        instance.connected = True
+
+        # simulate connected
+        modbus.client.connected = True
         modbus.release()
-        assert modbus.client.close.called
+        modbus.client.close.assert_called_once()
+
 
 def test_initialize_connection_failure():
-    modbus = ModbusRTU()
-    with patch("py_micro_hil.protocols.ModbusClient") as mock_client:
-        instance = mock_client.return_value
-        instance.connect.return_value = False
+    with patch("py_micro_hil.peripherals.modbus.ModbusClient") as mock_client_class:
+        mock_instance = mock_client_class.return_value
+        mock_instance.connect.return_value = False
+        modbus = ModbusRTU()
         with pytest.raises(ConnectionError):
             modbus.initialize()
 
+
 def test_release_when_not_connected():
     modbus = ModbusRTU()
-    mock_client = MagicMock()
-    mock_client.connected = False
-    modbus.client = mock_client
+    modbus.client = MagicMock()
+    modbus.client.connected = False
     modbus.release()
-    mock_client.close.assert_not_called()
+    modbus.client.close.assert_not_called()
+
+
+def test_release_when_client_none():
+    modbus = ModbusRTU()
+    modbus.client = None
+    # should not raise
+    modbus.release()
+
+
+# === Config and resources ===
 
 def test_get_initialized_params():
-    modbus = ModbusRTU(port="/dev/ttyUSB1", baudrate=19200, stopbits=1, parity='O', timeout=5)
-    expected = {
-        "port": "/dev/ttyUSB1",
+    modbus = ModbusRTU(port="/dev/ttyUSB5", baudrate=19200, stopbits=1, parity='O', timeout=3)
+    assert modbus.get_initialized_params() == {
+        "port": "/dev/ttyUSB5",
         "baudrate": 19200,
         "stopbits": 1,
         "parity": 'O',
-        "timeout": 5
+        "timeout": 3
     }
-    assert modbus.get_initialized_params() == expected
+
 
 def test_get_required_resources():
-    modbus = ModbusRTU(port="/dev/ttyUSB3")
-    assert modbus.get_required_resources() == {"ports": ["/dev/ttyUSB3"]}
+    modbus = ModbusRTU(port="/dev/ttyS10")
+    assert modbus.get_required_resources() == {"ports": ["/dev/ttyS10"]}
+
+
+# === Helper map for methods ===
+
+CLIENT_METHOD_MAP = {
+    "read_holding_registers": "read_holding_registers",
+    "write_single_register": "write_register",
+    "write_multiple_registers": "write_registers",
+    "read_coils": "read_coils",
+    "read_discrete_inputs": "read_discrete_inputs",
+    "read_input_registers": "read_input_registers",
+    "write_single_coil": "write_coil",
+    "write_multiple_coils": "write_coils"
+}
+
+
+# === Success cases ===
 
 @pytest.mark.parametrize("method_name,response_attr,response_value,args", [
     ("read_holding_registers", "registers", [1, 2, 3], (1, 100, 3)),
@@ -59,36 +102,25 @@ def test_get_required_resources():
     ("write_single_coil", None, None, (1, 100, True)),
     ("write_multiple_coils", None, None, (1, 100, [True, False])),
 ])
-@patch("py_micro_hil.protocols.ModbusClient")
-def test_modbus_methods_success(mock_client_class, method_name, response_attr, response_value, args, modbus_rtu):
+def test_modbus_methods_success(method_name, response_attr, response_value, args, modbus_rtu):
     mock_response = MagicMock()
     mock_response.isError.return_value = False
     if response_attr:
         setattr(mock_response, response_attr, response_value)
 
-    client_method_map = {
-        "read_holding_registers": "read_holding_registers",
-        "write_single_register": "write_register",
-        "write_multiple_registers": "write_registers",
-        "read_coils": "read_coils",
-        "read_discrete_inputs": "read_discrete_inputs",
-        "read_input_registers": "read_input_registers",
-        "write_single_coil": "write_coil",
-        "write_multiple_coils": "write_coils"
-    }
-
-    client_method_name = client_method_map[method_name]
+    client_method_name = CLIENT_METHOD_MAP[method_name]
     mock_client = MagicMock()
-    setattr(mock_client, client_method_name, MagicMock(return_value=mock_response))
+    getattr(mock_client, client_method_name).return_value = mock_response
     modbus_rtu.client = mock_client
 
-    method = getattr(modbus_rtu, method_name)
-    result = method(*args)
-
+    result = getattr(modbus_rtu, method_name)(*args)
     if response_attr:
         assert result == response_value
     else:
         assert result == mock_response
+
+
+# === Error cases ===
 
 @pytest.mark.parametrize("method_name,args", [
     ("read_holding_registers", (1, 100, 2)),
@@ -101,9 +133,9 @@ def test_modbus_methods_success(mock_client_class, method_name, response_attr, r
     ("write_multiple_coils", (1, 100, [True, False])),
 ])
 def test_method_runtime_error_when_not_initialized(method_name, args, modbus_rtu):
-    method = getattr(modbus_rtu, method_name)
     with pytest.raises(RuntimeError):
-        method(*args)
+        getattr(modbus_rtu, method_name)(*args)
+
 
 @pytest.mark.parametrize("method_name,args", [
     ("read_holding_registers", (1, 100, 2)),
@@ -119,22 +151,24 @@ def test_method_ioerror_on_error_response(method_name, args, modbus_rtu):
     mock_response = MagicMock()
     mock_response.isError.return_value = True
 
-    client_method_map = {
-        "read_holding_registers": "read_holding_registers",
-        "write_single_register": "write_register",
-        "write_multiple_registers": "write_registers",
-        "read_coils": "read_coils",
-        "read_discrete_inputs": "read_discrete_inputs",
-        "read_input_registers": "read_input_registers",
-        "write_single_coil": "write_coil",
-        "write_multiple_coils": "write_coils"
-    }
-
-    client_method_name = client_method_map[method_name]
+    client_method_name = CLIENT_METHOD_MAP[method_name]
     mock_client = MagicMock()
-    setattr(mock_client, client_method_name, MagicMock(return_value=mock_response))
+    getattr(mock_client, client_method_name).return_value = mock_response
     modbus_rtu.client = mock_client
 
-    method = getattr(modbus_rtu, method_name)
     with pytest.raises(IOError):
-        method(*args)
+        getattr(modbus_rtu, method_name)(*args)
+
+
+@pytest.mark.parametrize("method_name,args", [
+    ("read_holding_registers", (1, 100, 2)),
+    ("write_single_register", (1, 100, 123)),
+])
+def test_method_ioerror_when_response_none(method_name, args, modbus_rtu):
+    client_method_name = CLIENT_METHOD_MAP[method_name]
+    mock_client = MagicMock()
+    getattr(mock_client, client_method_name).return_value = None
+    modbus_rtu.client = mock_client
+
+    with pytest.raises(IOError):
+        getattr(modbus_rtu, method_name)(*args)
