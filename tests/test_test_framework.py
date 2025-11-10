@@ -60,12 +60,34 @@ def framework(peripheral_manager, fake_logger):
 # ---------------------------------------------------------------------
 
 def test_peripheral_is_abstract():
+    """Sprawdza, że Peripheral można odziedziczyć i poprawnie zaimplementować."""
     class Impl(Peripheral):
         def initialize(self): pass
         def release(self): pass
 
     p = Impl()
     assert isinstance(p, Peripheral)
+
+
+def test_peripheral_abstract_enforces_methods():
+    """Sprawdza, że klasa bez implementacji metod abstrakcyjnych nie może być zainicjalizowana."""
+    with pytest.raises(TypeError):
+        class BadPeripheral(Peripheral):
+            pass
+        BadPeripheral()
+
+
+def test_peripheral_not_implemented_raises():
+    """Sprawdza, że domyślne metody Peripheral rzucają NotImplementedError."""
+    class Impl(Peripheral):
+        def initialize(self): raise NotImplementedError
+        def release(self): raise NotImplementedError
+
+    p = Impl()
+    with pytest.raises(NotImplementedError):
+        p.initialize()
+    with pytest.raises(NotImplementedError):
+        p.release()
 
 
 # ---------------------------------------------------------------------
@@ -99,7 +121,6 @@ def test_missing_release_all_method(fake_logger):
     result = fx.run_all_tests()
     assert result == 0
     assert any("RESOURCE CLEANUP" in m[0] for m in fake_logger.entries)
-    # brak release_all -> ERROR log
     assert any("missing 'release_all'" in m[0] for m in fake_logger.entries)
 
 
@@ -125,6 +146,14 @@ def test_run_all_tests_success(peripheral_manager, fake_logger):
     assert peripheral_manager.initialized
     assert peripheral_manager.released
     assert any("TEST SUMMARY" in m[0] for m in fake_logger.entries)
+
+
+def test_run_all_tests_with_no_groups_logs_warning(peripheral_manager, fake_logger):
+    """Sprawdza zachowanie, gdy framework nie ma żadnych grup testowych."""
+    fx = TestFramework(peripheral_manager, fake_logger)
+    fx.run_all_tests()
+    assert any("TEST EXECUTION" in m[0] for m in fake_logger.entries)
+    assert "TEST SUMMARY" in fake_logger.entries[-1][0]
 
 
 def test_report_generation_failure(fake_logger, peripheral_manager, monkeypatch):
@@ -177,11 +206,18 @@ def test_print_summary_logs_to_file(fake_logger, peripheral_manager):
     assert any("Total Tests Run" in e[0] for e in fake_logger.entries)
 
 
+def test_print_summary_with_zero_tests(fake_logger, peripheral_manager):
+    """Sprawdza poprawne zachowanie, gdy nie wykonano żadnych testów."""
+    fx = TestFramework(peripheral_manager, fake_logger)
+    fx.print_summary()
+    assert any("Total Tests Run" in e[0] for e in fake_logger.entries)
+
+
 # ---------------------------------------------------------------------
 # TestGroup behaviour
 # ---------------------------------------------------------------------
 
-def test_TestGroup_setup_teardown_and_run(framework, fake_logger):
+def test_testgroup_setup_teardown_and_run(framework, fake_logger):
     order = []
 
     def setup(fr): order.append("setup")
@@ -197,7 +233,14 @@ def test_TestGroup_setup_teardown_and_run(framework, fake_logger):
     assert any("Finished test group" in e[0] for e in fake_logger.entries)
 
 
-def test_TestGroup_setup_exception_logged(framework, fake_logger):
+def test_testgroup_with_no_tests_warns_in_log(framework, fake_logger):
+    """Grupa bez testów powinna wyświetlać ostrzeżenie."""
+    grp = TestGroup("EmptyGroup")
+    grp.run_tests(framework)
+    assert any("No tests found" in e[0] for e in fake_logger.entries)
+
+
+def test_testgroup_setup_exception_logged(framework, fake_logger):
     def setup(fr): raise RuntimeError("boom")
     grp = TestGroup("G")
     grp.set_setup(setup)
@@ -206,7 +249,7 @@ def test_TestGroup_setup_exception_logged(framework, fake_logger):
     assert framework.fail_count > 0
 
 
-def test_TestGroup_teardown_exception_logged(framework, fake_logger):
+def test_testgroup_teardown_exception_logged(framework, fake_logger):
     def teardown(fr): raise RuntimeError("boom")
     grp = TestGroup("G")
     grp.set_teardown(teardown)
@@ -215,11 +258,20 @@ def test_TestGroup_teardown_exception_logged(framework, fake_logger):
     assert framework.fail_count > 0
 
 
+def test_duplicate_group_names(framework):
+    """Sprawdza, że dodanie dwóch grup o tej samej nazwie jest dozwolone, ale nie powoduje błędów."""
+    g1 = TestGroup("Same")
+    g2 = TestGroup("Same")
+    framework.add_test_group(g1)
+    framework.add_test_group(g2)
+    assert len(framework.test_groups) == 2
+
+
 # ---------------------------------------------------------------------
 # Test class
 # ---------------------------------------------------------------------
 
-def test_Test_run_pass_and_fail(framework, fake_logger):
+def test_test_run_pass_and_fail(framework, fake_logger):
     def ok(fr): pass
     def bad(fr): raise RuntimeError("xx")
 

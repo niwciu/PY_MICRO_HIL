@@ -1,4 +1,4 @@
-# pylint: disable=...
+# pylint: disable=too-many-instance-attributes, too-few-public-methods
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional
@@ -8,11 +8,17 @@ from py_micro_hil.report_generator import ReportGenerator
 from py_micro_hil.utils.system import is_raspberry_pi
 
 
+# =============================================================================
+# ABSTRACT BASE CLASS
+# =============================================================================
+
 class Peripheral(ABC):
     """
     Abstract base class for a peripheral device.
-    Peripheral manager must provide `initialize_all()` and `release_all()` methods to coordinate these.
+    Each peripheral must implement `initialize()` and `release()`.
+    PeripheralManager will call these methods during setup and cleanup.
     """
+
     @abstractmethod
     def initialize(self) -> None:
         """Initialize hardware resources."""
@@ -24,17 +30,19 @@ class Peripheral(ABC):
         pass
 
 
+# =============================================================================
+# CORE TEST FRAMEWORK
+# =============================================================================
+
 class TestFramework:
-    __test__ = False  # prevent pytest from collecting this class
     """
     Core test framework managing peripherals, test groups, and reporting.
     Expects `peripheral_manager` to implement `initialize_all()` and `release_all()`.
     """
-    def __init__(
-        self,
-        peripheral_manager: Any,
-        logger: Logger
-    ) -> None:
+
+    __test__ = False  # prevent pytest from collecting this class
+
+    def __init__(self, peripheral_manager: Any, logger: Logger) -> None:
         self.peripheral_manager = peripheral_manager
         self.test_groups: List[TestGroup] = []
         self.total_tests = 0
@@ -43,17 +51,28 @@ class TestFramework:
         self.logger = logger
         self.report_generator = ReportGenerator(self.logger)
 
+    # -------------------------------------------------------------------------
+    # GROUP MANAGEMENT
+    # -------------------------------------------------------------------------
+
     def add_test_group(self, group: TestGroup) -> None:
         """Add a TestGroup to be executed."""
         self.test_groups.append(group)
 
+    # -------------------------------------------------------------------------
+    # MAIN EXECUTION FLOW
+    # -------------------------------------------------------------------------
+
     def run_all_tests(self) -> int:
         """
-        Initialize peripherals, run all test groups, clean up resources,
-        and then print summary and generate report.
-        Returns number of failed tests.
+        Initialize peripherals, execute all test groups, perform cleanup,
+        and finally print summary and optionally generate HTML report.
+
+        :return: Number of failed tests.
         """
         self.logger.log("\n=================== INITIALIZATION ===================", to_console=True)
+
+        # Warn when running outside Raspberry Pi hardware
         if not is_raspberry_pi():
             self.logger.log(
                 "\n[WARNING] Framework running outside Raspberry Pi. "
@@ -63,16 +82,15 @@ class TestFramework:
 
         # --- Initialization phase ---
         try:
-            init = getattr(self.peripheral_manager, 'initialize_all', None)
+            init = getattr(self.peripheral_manager, "initialize_all", None)
             if not callable(init):
                 raise AttributeError("peripheral_manager missing 'initialize_all' method")
             init()
         except Exception as e:
             self.logger.log(f"[ERROR] During peripherals initialization: {e}", to_console=True)
             self.logger.log("Aborting tests.", to_console=True)
-            # oznacz błędy, ale nie wychodź z procesu
             self.fail_count += 1
-            return self.fail_count   # brak print_summary() – jak w poprzedniej logice
+            return self.fail_count
 
         # --- Test execution phase ---
         self.logger.log("\n=================== TEST EXECUTION ===================", to_console=True)
@@ -82,7 +100,7 @@ class TestFramework:
         # --- Cleanup phase ---
         self.logger.log("\n==================== RESOURCE CLEANUP ====================", to_console=True)
         try:
-            rel = getattr(self.peripheral_manager, 'release_all', None)
+            rel = getattr(self.peripheral_manager, "release_all", None)
             if not callable(rel):
                 raise AttributeError("peripheral_manager missing 'release_all' method")
             rel()
@@ -93,32 +111,36 @@ class TestFramework:
         self.print_summary()
 
         # --- Generate HTML report if enabled ---
-        if getattr(self.logger, 'html_file', None):
+        if getattr(self.logger, "html_file", None):
             try:
                 self.report_generator.generate(self.test_groups)
             except Exception as e:
                 self.logger.log(f"[ERROR] Report generation failed: {e}", to_console=True)
 
-
         return self.fail_count
 
+    # -------------------------------------------------------------------------
+    # SUMMARY AND REPORTING
+    # -------------------------------------------------------------------------
+
     def print_summary(self) -> None:
-        """
-        Print and log a summary of total, passed, and failed tests.
-        """
+        """Print and log a summary of total, passed, and failed tests."""
         total = self.total_tests
         passed = self.pass_count
         failed = self.fail_count
+
         summary = (
             "\n=================== TEST SUMMARY ===================\n"
             f"> Total Tests Run:     {total}\n"
             f"> Passed:              {passed} ✅\n"
             f"> Failed:              {failed} ❌\n"
             "\n======================== STATUS =====================\n"
-            f"\nOVERALL STATUS: {'✅ PASSED' if failed == 0 else '❌ FAILED'} : Please check logs for details.\n"
+            f"\nOVERALL STATUS: {'✅ PASSED' if failed == 0 else '❌ FAILED'}"
+            " : Please check logs for details.\n"
         )
+
         self.logger.log(summary, to_console=True)
-        if getattr(self.logger, 'log_file', None):
+        if getattr(self.logger, "log_file", None):
             self.logger.log(summary, to_console=False, to_log_file=True)
 
     def report_test_result(
@@ -128,24 +150,26 @@ class TestFramework:
         passed: bool,
         details: Optional[str] = None
     ) -> None:
-        """
-        Record and log the result of a single test.
-        """
+        """Record and log the result of a single test."""
         self.total_tests += 1
         status = "PASS" if passed else "FAIL"
+
         if passed:
             self.pass_count += 1
         else:
             self.fail_count += 1
-        # Console and optional file logging
+
         message = f"[{status}] {group_name} -> {test_name}"
         if details:
             message += f": {details}"
+
+        # Log to console and optionally to file
         self.logger.log(message, to_console=True)
-        if getattr(self.logger, 'log_file', None):
+        if getattr(self.logger, "log_file", None):
             self.logger.log(message, to_console=False, to_log_file=True)
+
         # Append entry for HTML report
-        if getattr(self.logger, 'html_file', None):
+        if getattr(self.logger, "html_file", None):
             self.logger.log_entries.append({
                 "group_name": group_name,
                 "test_name": test_name,
@@ -154,33 +178,25 @@ class TestFramework:
                 "additional_info": "-"
             })
 
-    def report_test_info(
-        self,
-        group_name: str,
-        test_name: str,
-        message: str
-    ) -> None:
-        """
-        Log informational message during a test.
-        """
+    def report_test_info(self, group_name: str, test_name: str, message: str) -> None:
+        """Log an informational message during a test."""
         note = f"[INFO] {group_name}, {test_name}: {message}"
         self.logger.log(note, to_console=True)
-        if getattr(self.logger, 'log_file', None):
+        if getattr(self.logger, "log_file", None):
             self.logger.log(note, to_console=False, to_log_file=True)
 
 
-class TestGroup:
-    __test__ = False  # prevent pytest from collecting this class
-    """
-    Holds a collection of Test instances along with optional setup and teardown.
-    """
-    __test__ = False  # Prevent pytest from collecting this class
+# =============================================================================
+# TEST GROUP
+# =============================================================================
 
-    def __init__(
-        self,
-        name: str,
-        test_file: Optional[str] = None
-    ) -> None:
+class TestGroup:
+    """
+    Represents a logical group of tests with optional setup and teardown functions.
+    """
+    __test__ = False  # prevent pytest from collecting this class
+
+    def __init__(self, name: str, test_file: Optional[str] = None) -> None:
         self.name = name
         self.tests: List[Test] = []
         self.setup: Optional[Any] = None
@@ -201,15 +217,15 @@ class TestGroup:
 
     def run_tests(self, framework: TestFramework) -> None:
         """
-        Execute setup, each test, and teardown, logging the group header.
-        Exceptions in setup/teardown are caught and logged but do not stop other groups.
+        Execute setup, each test, and teardown.
+        Exceptions in setup/teardown are caught and logged.
         """
         header = f"[INFO] Running test group: {self.name}"
         framework.logger.log(header, to_console=True)
-        if getattr(framework.logger, 'log_file', None):
+        if getattr(framework.logger, "log_file", None):
             framework.logger.log(header, to_console=False, to_log_file=True)
 
-        # Group setup
+        # --- Setup ---
         if self.setup:
             try:
                 self.setup(framework)
@@ -217,39 +233,39 @@ class TestGroup:
                 framework.logger.log(f"[ERROR] Setup for group '{self.name}' failed: {e}", to_console=True)
                 framework.fail_count += 1
 
-        # Tests
-        for test in self.tests:
-            test.run(framework, self.name)
+        # --- Run all tests ---
+        if not self.tests:
+            framework.logger.log(f"[WARNING] No tests found in group '{self.name}'.", to_console=True)
+        else:
+            for test in self.tests:
+                test.run(framework, self.name)
 
-        # Group teardown
+        # --- Teardown ---
         if self.teardown:
             try:
                 self.teardown(framework)
             except Exception as e:
                 framework.logger.log(f"[WARNING] Teardown for group '{self.name}' raised: {e}", to_console=True)
                 framework.fail_count += 1
+
         framework.logger.log(f"[INFO] Finished test group: {self.name}", to_console=True)
 
 
+# =============================================================================
+# TEST WRAPPER
+# =============================================================================
+
 class Test:
+    """Wraps a single test function with a name for reporting."""
     __test__ = False  # prevent pytest from collecting this class
-    """
-    Wraps a single test function with a name for reporting.
-    """
-    def __init__(
-        self,
-        name: str,
-        test_func: Any,
-        original_func: Optional[Any] = None
-    ) -> None:
+
+    def __init__(self, name: str, test_func: Any, original_func: Optional[Any] = None) -> None:
         self.name = name
         self.test_func = test_func
         self.original_func = original_func
 
     def run(self, framework: TestFramework, group_name: str) -> None:
-        """
-        Execute the test function and report pass or fail.
-        """
+        """Execute the test function and report its result."""
         try:
             self.test_func(framework)
         except Exception as e:
