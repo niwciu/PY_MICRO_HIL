@@ -10,6 +10,7 @@ from py_micro_hil.peripherals.RPiPeripherals import (
     RPiHardwarePWM,
 )
 from py_micro_hil.protocols import ModbusRTU
+from py_micro_hil.utils.system import is_raspberry_pi
 
 
 def load_peripheral_configuration(yaml_file=None, logger=None):
@@ -26,9 +27,12 @@ def load_peripheral_configuration(yaml_file=None, logger=None):
         tag = "[WARNING]" if warning else "[ERROR]"
         if logger:
             logger.log(f"{tag} {msg}", to_console=True, to_log_file=not warning)
-        if not warning:
-            raise ValueError(f"{tag} {msg}")
+        else:
+            print(f"{tag} {msg}")
 
+    # 0) sprawdz czy pracujesz na RPi i wyslij info
+    if not is_raspberry_pi():
+        log_or_raise("Running outside Raspberry Pi — using dummy RPi hardware interfaces.", warning=True)
     # 1) Znajdź plik YAML
     if yaml_file is None:
         yaml_file = Path.cwd() / "peripherals_config.yaml"
@@ -36,7 +40,10 @@ def load_peripheral_configuration(yaml_file=None, logger=None):
         yaml_file = Path(yaml_file)
 
     if not yaml_file.exists():
-        log_or_raise(f"Peripheral config file not found: {yaml_file.resolve()}", warning=False)
+        msg = f"Peripheral config file not found: {yaml_file.resolve()}"
+        log_or_raise(f"{msg}", warning=False)
+        return None
+
 
     # 2) Parsuj YAML
     try:
@@ -44,13 +51,16 @@ def load_peripheral_configuration(yaml_file=None, logger=None):
             config = yaml.safe_load(f)
     except yaml.YAMLError as e:
         log_or_raise(f"Failed to parse YAML: {e}", warning=False)
+        return None
 
-    # 3) Pusta lub niepoprawna struktura
+    # 3) Pusta lub niepoprawna struktura lub brak 
     if config is None:
-        log_or_raise("Peripheral configuration file is empty – using default empty configuration.", warning=True)
+        log_or_raise("Peripheral configuration file is empty.", warning=False)
         config = {}
+        return None
     if not isinstance(config, dict):
         log_or_raise("YAML content must be a dictionary at the top level.", warning=False)
+        return None
 
     peripherals_cfg = config.get("peripherals") or {}
     protocols_cfg   = config.get("protocols")   or {}

@@ -66,6 +66,17 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--config",
+        "-c",
+        metavar="YAML",
+        help=(
+            "Path to YAML configuration file.\n"
+            "If omitted, defaults to ./peripherals_config.yaml\n"
+            "Can be absolute or relative to the current working directory."
+        ),
+    )
+
+    parser.add_argument(
         "--list-tests",
         action="store_true",
         help="List all discovered test groups and exit without running them.",
@@ -82,6 +93,14 @@ def parse_args():
 
     # Resolve HTML path only if --html is present
     args.html = resolve_html_path(args.html) if args.html is not None else None
+
+    # Normalize YAML path (if provided)
+    if args.config:
+        config_path = Path(args.config)
+        # interpret relative paths relative to current working directory
+        if not config_path.is_absolute():
+            config_path = Path.cwd() / config_path
+        args.config = str(config_path.resolve())
 
     return args
 
@@ -108,10 +127,24 @@ def main():
     # Initialize logger
     logger = Logger(log_file=args.log, html_file=args.html)
 
+    # Log info about YAML configuration
+    if args.config:
+        logger.log(f"[INFO] Using configuration file: {args.config}", to_console=True, to_log_file=True)
+    else:
+        default_path = Path.cwd() / "peripherals_config.yaml"
+        logger.log(f"[INFO] Using default configuration file: {default_path}", to_console=True, to_log_file=True)
+
     # Initialize peripherals
     peripheral_manager = PeripheralManager(devices={}, logger=logger)
-    peripheral_manager.devices = load_peripheral_configuration(logger=logger)
-    print(f"Discovered peripherals: {peripheral_manager.devices}")
+    peripheral_manager.devices = load_peripheral_configuration(
+        yaml_file=args.config,
+        logger=logger
+    )
+    if peripheral_manager.devices is None:
+        logger.log("[ERROR] ❌ Peripheral configuration error. Exiting.", to_console=True, to_log_file=True)
+        sys.exit(1)
+
+    logger.log(f"[INFO] Discovered peripherals: {peripheral_manager.devices}")
 
     # Initialize test framework
     test_framework = TestFramework(peripheral_manager, logger)
@@ -119,11 +152,11 @@ def main():
     # Locate and load tests
     test_directory = Path(args.test_dir)
     if not test_directory.exists():
-        print(f"❌ Test directory '{test_directory}' does not exist.")
+        logger.log(f"[ERROR] ❌ Test directory '{test_directory}' does not exist.", to_console=True, to_log_file=True)
         sys.exit(1)
 
     test_groups = load_test_groups(test_directory)
-    print(f"Discovered test groups: {[group.name for group in test_groups]}")
+    logger.log(f"[INFO] Discovered test groups: {[group.name for group in test_groups]}", to_console=True)
 
     # Only list tests if requested
     if args.list_tests:
