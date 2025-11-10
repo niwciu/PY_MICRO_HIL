@@ -3,6 +3,7 @@ import inspect
 import os
 from unittest.mock import Mock
 import pytest
+
 from py_micro_hil.tests_framework import TestGroup
 from py_micro_hil.tests_group_factory import (
     wrap_group_function,
@@ -12,7 +13,12 @@ from py_micro_hil.tests_group_factory import (
 )
 
 
+# =============================================================================
+# WRAPPERS
+# =============================================================================
+
 def test_wrap_group_function_sets_context(monkeypatch):
+    """Testuje poprawne wywołanie set/clear kontekstu przy setup/teardown grupy."""
     call_log = []
 
     def mock_set_test_context(framework, group_name, label):
@@ -37,16 +43,38 @@ def test_wrap_group_function_sets_context(monkeypatch):
     ]
 
 
-def test_make_wrapped_test_calls_without_args(monkeypatch):
+def test_wrap_group_function_clears_context_on_exception(monkeypatch):
+    """Nawet gdy setup rzuca wyjątek, clear_test_context musi być wywołany."""
     call_log = []
 
-    def mock_set_test_context(framework, group_name, label):
+    def mock_set(fr, g, l): call_log.append("set")
+    def mock_clear(): call_log.append("clear")
+
+    monkeypatch.setattr("py_micro_hil.tests_group_factory.set_test_context", mock_set)
+    monkeypatch.setattr("py_micro_hil.tests_group_factory.clear_test_context", mock_clear)
+
+    def bad_setup():
+        raise RuntimeError("boom")
+
+    wrapped = wrap_group_function(bad_setup, "G", "Setup")
+
+    with pytest.raises(RuntimeError):
+        wrapped(Mock())
+
+    assert call_log == ["set", "clear"]
+
+
+def test_make_wrapped_test_calls_without_args(monkeypatch):
+    """Test bez parametrów wywoływany bez przekazywania framework."""
+    call_log = []
+
+    def mock_set(framework, group_name, label):
         call_log.append(("set", group_name, label))
 
     def mock_clear_test_context():
         call_log.append("clear")
 
-    monkeypatch.setattr("py_micro_hil.tests_group_factory.set_test_context", mock_set_test_context)
+    monkeypatch.setattr("py_micro_hil.tests_group_factory.set_test_context", mock_set)
     monkeypatch.setattr("py_micro_hil.tests_group_factory.clear_test_context", mock_clear_test_context)
 
     def dummy_test():
@@ -62,15 +90,16 @@ def test_make_wrapped_test_calls_without_args(monkeypatch):
 
 
 def test_make_wrapped_test_calls_with_args(monkeypatch):
+    """Test z parametrem framework jest wywoływany z argumentem."""
     call_log = []
 
-    def mock_set_test_context(framework, group_name, label):
+    def mock_set(framework, group_name, label):
         call_log.append(("set", group_name, label))
 
     def mock_clear_test_context():
         call_log.append("clear")
 
-    monkeypatch.setattr("py_micro_hil.tests_group_factory.set_test_context", mock_set_test_context)
+    monkeypatch.setattr("py_micro_hil.tests_group_factory.set_test_context", mock_set)
     monkeypatch.setattr("py_micro_hil.tests_group_factory.clear_test_context", mock_clear_test_context)
 
     def dummy_test(framework):
@@ -85,7 +114,27 @@ def test_make_wrapped_test_calls_with_args(monkeypatch):
     ]
 
 
+def test_make_wrapped_test_raises_still_clears(monkeypatch):
+    """Nawet jeśli test rzuci wyjątek, clear_test_context musi się wykonać."""
+    log = []
+    monkeypatch.setattr("py_micro_hil.tests_group_factory.set_test_context", lambda f, g, l: log.append("set"))
+    monkeypatch.setattr("py_micro_hil.tests_group_factory.clear_test_context", lambda: log.append("clear"))
+
+    def failing_test():
+        raise RuntimeError("boom")
+
+    wrapped = make_wrapped_test(failing_test, "test_fail", "G")
+    with pytest.raises(RuntimeError):
+        wrapped(Mock())
+    assert log == ["set", "clear"]
+
+
+# =============================================================================
+# MODULE PARSING
+# =============================================================================
+
 def test_add_tests_from_module_discovers_functions():
+    """Funkcje test_* są wykrywane i dodawane do grupy."""
     module = types.SimpleNamespace()
     called = []
 
@@ -100,24 +149,31 @@ def test_add_tests_from_module_discovers_functions():
     assert len(group.tests) == 1
     assert group.tests[0].name == "test_abc"
 
-    # Symuluje uruchomienie testu
+    # Uruchomienie testu
     group.tests[0].run(Mock(), "example")
     assert called == ["abc"]
 
 
+def test_add_tests_from_module_ignores_non_callable():
+    """Elementy niebędące funkcjami nie są dodawane do grupy."""
+    module = types.SimpleNamespace()
+    module.test_value = 123
+    module.test_lambda = lambda: None  # zostanie dodany
+
+    group = TestGroup("mixed", "f")
+    add_tests_from_module(group, module, "mixed")
+    assert len(group.tests) == 1
+    assert group.tests[0].name == "test_lambda"
+
+
+# =============================================================================
+# GROUP CREATION
+# =============================================================================
+
 def test_create_test_group_from_module_integration(tmp_path):
+    """Pełna integracja: setup, teardown i test funkcja."""
     tracker = []
 
-    def setup_group():
-        tracker.append("setup")
-
-    def teardown_group():
-        tracker.append("teardown")
-
-    def test_example():
-        tracker.append("test")
-
-    # Tworzenie tymczasowego modułu z __file__
     test_code = """
 tracker = []
 def setup_group():
@@ -141,6 +197,8 @@ def test_example():
     assert group.setup is not None
     assert group.teardown is not None
     assert len(group.tests) == 1
+    assert group.test_file.endswith("fake_module.py")
+
     group.setup(Mock())
     group.tests[0].run(Mock(), group.name)
     group.teardown(Mock())
@@ -148,6 +206,7 @@ def test_example():
 
 
 def test_create_group_without_setup_teardown(tmp_path):
+    """Moduł bez setup/teardown – tylko test_*."""
     test_code = """
 tracker = []
 def test_only():
@@ -167,3 +226,32 @@ def test_only():
     assert len(group.tests) == 1
     group.tests[0].run(Mock(), group.name)
     assert "ran" in mod.tracker
+
+
+def test_create_group_with_no_tests(tmp_path):
+    """Moduł nie zawierający żadnych testów zwraca pustą grupę."""
+    code = """
+def helper(): pass
+x = 42
+"""
+    path = tmp_path / "empty_mod.py"
+    path.write_text(code)
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("empty_mod", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    group = create_test_group_from_module(mod)
+    assert group.tests == []
+
+
+def test_create_group_with_unknown_source(monkeypatch):
+    """Jeśli getsourcefile zwróci None, ustawiany jest (unknown source)."""
+    fake_module = types.SimpleNamespace(__name__="dummy.module")
+
+    monkeypatch.setattr(inspect, "getsourcefile", lambda _: None)
+    group = create_test_group_from_module(fake_module)
+
+    assert group.test_file == "(unknown source)"
+    assert group.name == "module"
+    assert isinstance(group, TestGroup)
