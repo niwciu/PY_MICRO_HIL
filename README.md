@@ -29,13 +29,6 @@ With this framework you can:
 
 ## ⚙️ Installation
 
-Before installing, it is **recommended to use a virtual environment**:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate   # or on Windows: .venv\Scripts\activate
-```
-
 ### 🧰 Option 1 – From PyPI (recommended for most users)
 
 ```bash
@@ -54,8 +47,9 @@ pip install -e .
 > ```bash
 > pip install py-micro-hil --break-system-packages
 > ```
+> It will make your life easier whe using it in serices like GitHub Actions
 
-### Optional dependencies
+### dependencies
 
 ```
 pymodbus, pytest, smbus2, spidev, pyserial
@@ -66,6 +60,8 @@ pymodbus, pytest, smbus2, spidev, pyserial
 For development and contribution:
 
 ```bash
+git clone https://github.com/niwciu/PY_MICRO_HIL.git
+cd PY_MICRO_HIL
 pip install -e .[dev]
 ```
 
@@ -75,19 +71,16 @@ pip install -e .[dev]
 
 ### 1️⃣ Create a configuration file
 
-In the project root, create a file `peripherals_config.yaml`, for example:
+In the project root for your project hil tests main folder, create a file `peripherals_config.yaml`, for example:
 
 ```yaml
-framework:
-  log_level: INFO
-  report_dir: ./reports
-  parallel_execution: false
-
 peripherals:
   gpio:
-    pins:
-      17:
-        mode: OUT
+    - pin: 17
+      mode: out
+      initial: low
+    - pin: 18
+      mode: in
 ```
 
 Full configuration reference:  
@@ -97,26 +90,26 @@ Full configuration reference:
 
 ### 2️⃣ Create test files
 
-Create a directory named `hil_tests/` and add your test modules there.  
-Each file represents a **test group**.
+Create a directory named `hil_tests/` and add your test groups there.  
+Each .py file should start it's name from **test** and represents a **test group**.
 
 Example: `hil_tests/test_gpio_led.py`
 
 ```python
-from py_micro_hil.peripherals.rpi_peripherals import RPiGPIO
-
-config = {17: {"mode": "OUT"}}
-gpio = RPiGPIO(config)
+from py_micro_hil.assertions import *
+from py_micro_hil.framework_API import *
 
 def setup_group():
-    gpio.initialize()
+    TEST_INFO_MESSAGE("Setting up gpio led test group")
 
 def teardown_group():
-    gpio.release()
+    TEST_INFO_MESSAGE("Tearing down gpio led test group")
 
 def test_led_toggle():
+    gpio = get_RPiGPIO_peripheral()
     gpio.write(17, 1)
-    assert gpio.read(17) == 1
+    TEST_
+    TEST_ASSERT_EQUAL (1, gpio.read(18))
 ```
 
 ---
@@ -133,14 +126,8 @@ Use the built-in **CLI runner**:
 hiltests --config ./peripherals_config.yaml --tests ./hil_tests
 ```
 
-You can display all options with:
-
-```bash
-hiltests --help
-```
-
-If both the YAML configuration and the `hil_tests` directory are in the current directory,  
-simply run:
+If both the YAML configuration and the `hil_tests` folder are in the same directory,  
+simply open this directory and run:
 
 ```bash
 hiltests
@@ -164,7 +151,7 @@ or
 hiltests --html ./reports/report.html
 ```
 
-Reports can be customized with name, path, or format.  
+Reports can be customized with name and path.  
 See: [Reports and Logging →](https://niwciu.github.io/PY_MICRO_HIL/reports/)
 
 ---
@@ -175,14 +162,14 @@ See: [Reports and Logging →](https://niwciu.github.io/PY_MICRO_HIL/reports/)
 - ✅ Automatic setup/teardown with context isolation  
 - ✅ YAML-driven configuration system  
 - ✅ Dynamic test discovery (`tests_group_factory`)  
-- ✅ Mock peripherals for PC and CI/CD environments  
+- ✅ Mock peripherals for PC environment (not RPi) 
 - ✅ Full logging and HTML report generation  
 - ✅ Native CLI interface (`hiltests`)  
 - ✅ Compatible with Raspberry Pi and Linux hosts  
 
 ---
 
-## 🧰 Supported peripherals
+## 🧰 Supported peripherals & protocols
 
 | Peripheral | Class | Description |
 |-------------|--------|-------------|
