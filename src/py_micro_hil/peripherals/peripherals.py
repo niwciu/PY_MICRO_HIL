@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+
 class Peripheral(ABC):
     @abstractmethod
     def initialize(self):
@@ -8,6 +9,7 @@ class Peripheral(ABC):
     @abstractmethod
     def release(self):
         pass
+
 
 # TODO: Define peripheral classes for hardware other than that available on RPi.
 # In general, this module should be used when the framework is running on non-RPi hardware,

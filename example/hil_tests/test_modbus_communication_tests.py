@@ -1,6 +1,12 @@
 from py_micro_hil.assertions import *
 from py_micro_hil.framework_API import *
 
+def setup_group():
+    TEST_INFO_MESSAGE("Setting up Modbus Read test group")
+
+def teardown_group():
+    TEST_INFO_MESSAGE("Tearing down Modbus Read test group")
+
 def test_modbus_read_test():
     try:
         # Pobranie zasobu ModbusTRU z menedżera

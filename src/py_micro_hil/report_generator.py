@@ -7,6 +7,7 @@ from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
 class ReportGenerationError(RuntimeError):
     """Raised when report generation fails due to missing files or templates."""
+
     pass
 
 
@@ -95,12 +96,14 @@ class ReportGenerator:
                         "summary": "",
                     }
 
-                grouped_tests[group_name]["tests"].append({
-                    "name": entry.get("test_name", "Unnamed Test"),
-                    "status": entry["level"],
-                    "details": entry.get("message", ""),
-                    "info": entry.get("additional_info", "N/A"),
-                })
+                grouped_tests[group_name]["tests"].append(
+                    {
+                        "name": entry.get("test_name", "Unnamed Test"),
+                        "status": entry["level"],
+                        "details": entry.get("message", ""),
+                        "info": entry.get("additional_info", "N/A"),
+                    }
+                )
 
                 if entry["level"] == "FAIL":
                     grouped_tests[group_name]["status"] = "FAIL"
@@ -110,9 +113,11 @@ class ReportGenerator:
                 "failed": len([e for e in self.logger.log_entries if e["level"] == "FAIL"]),
             }
             summary["total_tests"] = summary["passed"] + summary["failed"]
-            summary["pass_percentage"] = round(
-                (summary["passed"] / summary["total_tests"]) * 100, 1
-            ) if summary["total_tests"] else 0.0
+            summary["pass_percentage"] = (
+                round((summary["passed"] / summary["total_tests"]) * 100, 1)
+                if summary["total_tests"]
+                else 0.0
+            )
             summary["fail_percentage"] = round(100 - summary["pass_percentage"], 1)
 
             for group in grouped_tests.values():
@@ -163,18 +168,23 @@ class ReportGenerator:
                 if test.original_func:
                     try:
                         test_code = inspect.getsource(test.original_func)
-                        test_id = re.sub(r'[^a-zA-Z0-9_]', '_', test.name).lower()
+                        test_id = re.sub(r"[^a-zA-Z0-9_]", "_", test.name).lower()
                         test.info = f"{group_file_name}#{test_id}"
 
                         for entry in self.logger.log_entries:
-                            if entry.get("test_name") == test.name and entry.get("group_name") == group.name:
+                            if (
+                                entry.get("test_name") == test.name
+                                and entry.get("group_name") == group.name
+                            ):
                                 entry["additional_info"] = test.info
 
-                        test_code_entries.append({
-                            "test_name": test.name,
-                            "code": test_code,
-                            "id": test_id,
-                        })
+                        test_code_entries.append(
+                            {
+                                "test_name": test.name,
+                                "code": test_code,
+                                "id": test_id,
+                            }
+                        )
                     except Exception as e:
                         self._log(f"⚠️  Could not extract source for test '{test.name}': {e}")
                         continue

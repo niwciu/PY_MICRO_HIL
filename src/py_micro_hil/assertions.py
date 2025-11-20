@@ -15,6 +15,7 @@ _current_test_name: ContextVar[Optional[str]] = ContextVar("test_name", default=
 # Context management
 # ---------------------------------------------------------------------
 
+
 def set_test_context(framework: Any, group_name: str, test_name: str) -> None:
     """
     Sets the global test context.
@@ -53,29 +54,24 @@ def _get_context(context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
 # Internal reporting helpers
 # ---------------------------------------------------------------------
 
+
 def _report_result(ctx: Dict[str, Any], passed: bool, message: Optional[str] = None) -> bool:
-    ctx["framework"].report_test_result(
-        ctx["group_name"],
-        ctx["test_name"],
-        passed,
-        message
-    )
+    ctx["framework"].report_test_result(ctx["group_name"], ctx["test_name"], passed, message)
     return passed
 
 
 def _report_info(ctx: Dict[str, Any], message: str) -> None:
-    ctx["framework"].report_test_info(
-        ctx["group_name"],
-        ctx["test_name"],
-        message
-    )
+    ctx["framework"].report_test_info(ctx["group_name"], ctx["test_name"], message)
 
 
 # ---------------------------------------------------------------------
 # Assertion helpers
 # ---------------------------------------------------------------------
 
-def TEST_FAIL_MESSAGE(message: str, context: Optional[Dict[str, Any]] = None) -> Optional[Tuple[str, str]]:
+
+def TEST_FAIL_MESSAGE(
+    message: str, context: Optional[Dict[str, Any]] = None
+) -> Optional[Tuple[str, str]]:
     """
     Reports a test failure with the given message.
     If the framework context exists, logs via framework; otherwise returns a symbolic tuple.
@@ -87,7 +83,9 @@ def TEST_FAIL_MESSAGE(message: str, context: Optional[Dict[str, Any]] = None) ->
     return ("TEST_FAIL_MESSAGE", message)
 
 
-def TEST_INFO_MESSAGE(message: str, context: Optional[Dict[str, Any]] = None) -> Optional[Tuple[str, str]]:
+def TEST_INFO_MESSAGE(
+    message: str, context: Optional[Dict[str, Any]] = None
+) -> Optional[Tuple[str, str]]:
     """
     Logs an informational message.
     If the framework context exists, logs via framework; otherwise returns a symbolic tuple.
@@ -99,7 +97,9 @@ def TEST_INFO_MESSAGE(message: str, context: Optional[Dict[str, Any]] = None) ->
     return ("TEST_INFO_MESSAGE", message)
 
 
-def TEST_ASSERT_EQUAL(expected: Any, actual: Any, context: Optional[Dict[str, Any]] = None) -> Optional[Tuple[str, Any, Any]]:
+def TEST_ASSERT_EQUAL(
+    expected: Any, actual: Any, context: Optional[Dict[str, Any]] = None
+) -> Optional[Tuple[str, Any, Any]]:
     """
     Asserts that expected == actual.
     Reports via framework if context is active, otherwise returns a symbolic representation.
@@ -108,7 +108,9 @@ def TEST_ASSERT_EQUAL(expected: Any, actual: Any, context: Optional[Dict[str, An
     if ctx["framework"]:
         try:
             if expected != actual:
-                _report_result(ctx, False, f"Assertion failed! Expected = {expected}, actual = {actual}")
+                _report_result(
+                    ctx, False, f"Assertion failed! Expected = {expected}, actual = {actual}"
+                )
             else:
                 _report_result(ctx, True)
         except Exception as e:
@@ -117,7 +119,9 @@ def TEST_ASSERT_EQUAL(expected: Any, actual: Any, context: Optional[Dict[str, An
     return ("TEST_ASSERT_EQUAL", actual, expected)
 
 
-def TEST_ASSERT_TRUE(condition: Any, context: Optional[Dict[str, Any]] = None) -> Optional[Tuple[str, Any]]:
+def TEST_ASSERT_TRUE(
+    condition: Any, context: Optional[Dict[str, Any]] = None
+) -> Optional[Tuple[str, Any]]:
     """
     Asserts that condition is True.
     Reports via framework if context is active, otherwise returns a symbolic representation.
@@ -133,7 +137,9 @@ def TEST_ASSERT_TRUE(condition: Any, context: Optional[Dict[str, Any]] = None) -
     return ("TEST_ASSERT_TRUE", condition)
 
 
-def TEST_ASSERT_IN(item: Any, collection: Any, context: Optional[Dict[str, Any]] = None) -> Optional[Tuple[str, Any, Any]]:
+def TEST_ASSERT_IN(
+    item: Any, collection: Any, context: Optional[Dict[str, Any]] = None
+) -> Optional[Tuple[str, Any, Any]]:
     """
     Asserts that an item is present in the collection.
     Reports via framework if context is active, otherwise returns a symbolic representation.

@@ -8,6 +8,7 @@ except ImportError:
     def colored(text: str, _: str) -> str:
         return text
 
+
 from py_micro_hil.report_generator import ReportGenerator
 
 
@@ -36,7 +37,9 @@ class Logger:
         self._file_initialized: bool = False
         self.log_entries: List[Dict[str, Any]] = []
         self.last_message: Optional[str] = None
-        self.report_generator: Optional[ReportGenerator] = ReportGenerator(self) if html_file else None
+        self.report_generator: Optional[ReportGenerator] = (
+            ReportGenerator(self) if html_file else None
+        )
 
         if self.log_file:
             self._initialize_log_file()
@@ -68,10 +71,12 @@ class Logger:
             self._log_to_file(message)
 
         if html_log and self._should_log_to_html(message):
-            self.log_entries.append({
-                "level": self._extract_level(message),
-                "message": message,
-            })
+            self.log_entries.append(
+                {
+                    "level": self._extract_level(message),
+                    "message": message,
+                }
+            )
 
     def flush_log(self) -> None:
         """

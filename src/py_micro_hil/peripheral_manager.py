@@ -6,11 +6,13 @@ from typing import Any, Dict, List
 # ABSTRACT BASE CLASSES
 # =============================================================================
 
+
 class Peripheral(ABC):
     """
     Abstract base class for a peripheral device.
     Each peripheral must implement initialize() and release().
     """
+
     @abstractmethod
     def initialize(self) -> None:
         pass
@@ -25,6 +27,7 @@ class Protocol(ABC):
     Abstract base class for a communication protocol device.
     Each protocol must implement initialize() and release().
     """
+
     @abstractmethod
     def initialize(self) -> None:
         pass
@@ -38,13 +41,16 @@ class Protocol(ABC):
 # CUSTOM EXCEPTIONS
 # =============================================================================
 
+
 class FrameworkError(RuntimeError):
     """Base class for all framework-related errors."""
+
     pass
 
 
 class PeripheralInitializationError(FrameworkError):
     """Raised when a critical error occurs during peripheral initialization."""
+
     pass
 
 
@@ -52,13 +58,16 @@ class PeripheralInitializationError(FrameworkError):
 # PERIPHERAL MANAGER
 # =============================================================================
 
+
 class PeripheralManager:
     """
     Manages devices and reservations of GPIOs and ports.
     Handles initialization, resource conflicts, and cleanup of peripherals.
     """
 
-    def __init__(self, devices: Dict[str, List[Any]], logger: Any, logging_enabled: bool = True) -> None:
+    def __init__(
+        self, devices: Dict[str, List[Any]], logger: Any, logging_enabled: bool = True
+    ) -> None:
         """
         :param devices: Dictionary containing devices grouped under 'protocols' and 'peripherals'.
         :param logger: Instance of the Logger class for logging.
@@ -72,16 +81,16 @@ class PeripheralManager:
         self.logging_enabled = logging_enabled
 
         # Resource registries
-        self.gpio_registry: Dict[Any, str] = {}   # {pin: "DeviceName"}
-        self.port_registry: Dict[Any, str] = {}   # {port: "DeviceName"}
+        self.gpio_registry: Dict[Any, str] = {}  # {pin: "DeviceName"}
+        self.port_registry: Dict[Any, str] = {}  # {port: "DeviceName"}
         self.initialized_devices: List[Any] = []  # Devices initialized before potential failure
 
         # Pass logger and logging config to all devices
-        for group in ['protocols', 'peripherals']:
+        for group in ["protocols", "peripherals"]:
             for device in self.devices.get(group, []):
-                if hasattr(device, 'logger'):
+                if hasattr(device, "logger"):
                     device.logger = self.logger
-                if hasattr(device, 'logging_enabled'):
+                if hasattr(device, "logging_enabled"):
                     device.logging_enabled = self.logging_enabled
 
     # -------------------------------------------------------------------------
@@ -93,9 +102,9 @@ class PeripheralManager:
         Enables logging for all devices in both groups.
         """
         self.logging_enabled = True
-        for group in ['protocols', 'peripherals']:
+        for group in ["protocols", "peripherals"]:
             for device in self.devices.get(group, []):
-                if hasattr(device, 'enable_logging'):
+                if hasattr(device, "enable_logging"):
                     device.enable_logging()
 
     def disable_logging_all(self) -> None:
@@ -103,9 +112,9 @@ class PeripheralManager:
         Disables logging for all devices in both groups.
         """
         self.logging_enabled = False
-        for group in ['protocols', 'peripherals']:
+        for group in ["protocols", "peripherals"]:
             for device in self.devices.get(group, []):
-                if hasattr(device, 'disable_logging'):
+                if hasattr(device, "disable_logging"):
                     device.disable_logging()
 
     # -------------------------------------------------------------------------
@@ -137,16 +146,23 @@ class PeripheralManager:
                     self._log_resources_initialized(resources, device, device_name)
                     self.initialized_devices.append(device)
 
-                    self.logger.log(f"[INFO] {device_name} initialized successfully.", to_console=True)
+                    self.logger.log(
+                        f"[INFO] {device_name} initialized successfully.", to_console=True
+                    )
 
                 except RuntimeError as e:
                     # Optional device → log warning and continue
                     if getattr(device, "optional", False):
-                        self.logger.log(f"[WARNING] Nie zainicjalizowano {device_name}: {e}", to_console=True)
+                        self.logger.log(
+                            f"[WARNING] Nie zainicjalizowano {device_name}: {e}", to_console=True
+                        )
                         continue
 
                     # Critical error → rollback and abort
-                    self.logger.log(f"[ERROR] Krytyczny błąd przy inicjalizacji {device_name}: {e}", to_console=True)
+                    self.logger.log(
+                        f"[ERROR] Krytyczny błąd przy inicjalizacji {device_name}: {e}",
+                        to_console=True,
+                    )
                     self.release_all()
                     raise PeripheralInitializationError(str(e))
 
@@ -171,7 +187,10 @@ class PeripheralManager:
                 device.release()
                 self.logger.log(f"[INFO] Released {name}.", to_console=True)
             except Exception as e:
-                self.logger.log(f"[ERROR] Error during releasing {type(device).__name__}: {str(e)}", to_console=True)
+                self.logger.log(
+                    f"[ERROR] Error during releasing {type(device).__name__}: {str(e)}",
+                    to_console=True,
+                )
 
         # --- Cleanup registries ---
         self.initialized_devices.clear()
@@ -219,7 +238,9 @@ class PeripheralManager:
             if isinstance(port, str):  # e.g., /dev/ttyUSB0
                 self.logger.log(f"[INFO] Port {port} reserved for {device_name}.", to_console=True)
 
-    def _log_conflict(self, resource: Any, current_device: str, conflicting_device: str, resource_type: str) -> None:
+    def _log_conflict(
+        self, resource: Any, current_device: str, conflicting_device: str, resource_type: str
+    ) -> None:
         """
         Logs a resource conflict and raises a RuntimeError.
         :param resource: Name of the resource (pin or port).
@@ -227,12 +248,16 @@ class PeripheralManager:
         :param conflicting_device: Device that already reserved it.
         :param resource_type: 'Pin' or 'Port'.
         """
-        message = (f"[ERROR] {resource_type} {resource} conflict: "
-                   f"{current_device} cannot be initialized because it is already reserved by {conflicting_device}.")
+        message = (
+            f"[ERROR] {resource_type} {resource} conflict: "
+            f"{current_device} cannot be initialized because it is already reserved by {conflicting_device}."
+        )
         self.logger.log(message, to_console=True)
         raise RuntimeError(message)
 
-    def _log_resources_initialized(self, resources: Dict[str, Any], device: Any, device_name: str) -> None:
+    def _log_resources_initialized(
+        self, resources: Dict[str, Any], device: Any, device_name: str
+    ) -> None:
         """
         Logs successful initialization of all resources.
         :param resources: Dict of resources from device.
@@ -240,12 +265,16 @@ class PeripheralManager:
         :param device_name: Device class name.
         """
         for pin in resources.get("pins", []):
-            self.logger.log(f"[INFO] Pin {pin} successfully initialized by {device_name}.", to_console=True)
+            self.logger.log(
+                f"[INFO] Pin {pin} successfully initialized by {device_name}.", to_console=True
+            )
 
         for port in resources.get("ports", []):
             device_param = getattr(device, "get_initialized_params", lambda: {})()
-            params_str = ', '.join([f"{key}: {value}" for key, value in device_param.items()])
-            self.logger.log(f"[INFO] {device_name} successfully opened {params_str}", to_console=True)
+            params_str = ", ".join([f"{key}: {value}" for key, value in device_param.items()])
+            self.logger.log(
+                f"[INFO] {device_name} successfully opened {params_str}", to_console=True
+            )
 
         # Final confirmation log for device readiness
         if resources.get("ports") or resources.get("pins"):

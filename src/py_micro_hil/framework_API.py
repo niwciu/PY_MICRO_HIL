@@ -3,8 +3,12 @@ from py_micro_hil.assertions import _current_framework
 
 if TYPE_CHECKING:
     from py_micro_hil.peripherals.RPiPeripherals import (
-        RPiUART_API, RPiGPIO_API, RPiPWM_API, RPiI2C_API,
-        RPiSPI_API, RPiHardwarePWM_API
+        RPiUART_API,
+        RPiGPIO_API,
+        RPiPWM_API,
+        RPiI2C_API,
+        RPiSPI_API,
+        RPiHardwarePWM_API,
     )
     from py_micro_hil.peripherals.modbus import ModbusRTU_API
 
@@ -16,7 +20,9 @@ def _get_framework():
     """
     framework = _current_framework.get()
     if not framework:
-        raise RuntimeError("No framework context is set (did you forget to call set_test_context()?)")
+        raise RuntimeError(
+            "No framework context is set (did you forget to call set_test_context()?)"
+        )
     return framework
 
 

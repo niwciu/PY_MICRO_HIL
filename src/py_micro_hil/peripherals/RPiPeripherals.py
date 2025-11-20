@@ -1,15 +1,5 @@
 import sys
 from py_micro_hil.utils.system import is_raspberry_pi
-
-ON_RPI = is_raspberry_pi()
-
-if not ON_RPI:
-    from py_micro_hil.peripherals import dummyRPiPeripherals as mock
-    sys.modules["RPi.GPIO"] = mock.GPIO
-    sys.modules["spidev"] = mock.spidev
-    sys.modules["smbus2"] = type("smbus2", (), {"SMBus": mock.SMBus})
-    sys.modules["serial"] = mock.serial
-
 import RPi.GPIO as GPIO
 import spidev
 import serial
@@ -19,14 +9,26 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union
 
+ON_RPI = is_raspberry_pi()
+
+if not ON_RPI:
+    from py_micro_hil.peripherals import dummyRPiPeripherals as mock
+
+    sys.modules["RPi.GPIO"] = mock.GPIO
+    sys.modules["spidev"] = mock.spidev
+    sys.modules["smbus2"] = type("smbus2", (), {"SMBus": mock.SMBus})
+    sys.modules["serial"] = mock.serial
+
 
 # Mixins for logging and resource management
 class LoggingMixin:
     """
     Mixin providing enable/disable logging and an internal _log helper.
     """
-    def __init__(self, logger: Optional[logging.Logger] = None,
-                 logging_enabled: bool = True) -> None:
+
+    def __init__(
+        self, logger: Optional[logging.Logger] = None, logging_enabled: bool = True
+    ) -> None:
         self._logger = logger
         self._logging_enabled = logging_enabled
 
@@ -46,11 +48,14 @@ class LoggingMixin:
         if self._logging_enabled and self._logger:
             # nasz Logger.log(msg, to_console=False, to_log_file=False)
             self._logger.log(message)
+
+
 class ResourceMixin:
     """
     Mixin enabling use as a context manager: calls initialize on enter,
     and release on exit.
     """
+
     def __enter__(self) -> Any:
         self.initialize()
         return self
@@ -62,6 +67,7 @@ class ResourceMixin:
 # --- GPIO ---
 class RPiGPIO_API(ABC):
     """Abstract interface for GPIO digital I/O."""
+
     @abstractmethod
     def write(self, pin: int, value: int) -> None:
         pass
@@ -81,14 +87,19 @@ class RPiGPIO_API(ABC):
     @abstractmethod
     def disable_logging(self) -> None:
         pass
+
+
 class RPiGPIO(LoggingMixin, ResourceMixin, RPiGPIO_API):
     """
     Implementation of GPIO digital I/O using RPi.GPIO.
     """
-    def __init__(self,
-                 pin_config: Dict[int, Dict[str, Any]],
-                 logger: Optional[logging.Logger] = None,
-                 logging_enabled: bool = True) -> None:
+
+    def __init__(
+        self,
+        pin_config: Dict[int, Dict[str, Any]],
+        logger: Optional[logging.Logger] = None,
+        logging_enabled: bool = True,
+    ) -> None:
         super().__init__(logger, logging_enabled)
         self._pin_config = pin_config
 
@@ -99,8 +110,8 @@ class RPiGPIO(LoggingMixin, ResourceMixin, RPiGPIO_API):
         """Configure all GPIO pins according to pin_config."""
         GPIO.setmode(GPIO.BCM)
         for pin, cfg in self._pin_config.items():
-            mode = cfg.get('mode', GPIO.IN)
-            initial = cfg.get('initial')
+            mode = cfg.get("mode", GPIO.IN)
+            initial = cfg.get("initial")
             if mode == GPIO.OUT:
                 if initial is not None:
                     GPIO.setup(pin, GPIO.OUT, initial=initial)
@@ -133,12 +144,16 @@ class RPiGPIO(LoggingMixin, ResourceMixin, RPiGPIO_API):
         for pin in self._pin_config:
             GPIO.cleanup(pin)
             self._log(f"Cleaned up pin {pin}")
+
     def get_gpio_interface():
-        """  Returns GPIO interface.    """
+        """Returns GPIO interface."""
         return GPIO
+
+
 # --- Software PWM ---
 class RPiPWM_API(ABC):
     """Abstract interface for software PWM using RPi.GPIO."""
+
     @abstractmethod
     def set_duty_cycle(self, duty_cycle: float) -> None:
         pass
@@ -154,15 +169,20 @@ class RPiPWM_API(ABC):
     @abstractmethod
     def disable_logging(self) -> None:
         pass
+
+
 class RPiPWM(LoggingMixin, ResourceMixin, RPiPWM_API):
     """
     Software PWM on a GPIO pin via RPi.GPIO.PWM.
     """
-    def __init__(self,
-                 pin: int,
-                 frequency: float = 1000.0,
-                 logger: Optional[logging.Logger] = None,
-                 logging_enabled: bool = True) -> None:
+
+    def __init__(
+        self,
+        pin: int,
+        frequency: float = 1000.0,
+        logger: Optional[logging.Logger] = None,
+        logging_enabled: bool = True,
+    ) -> None:
         super().__init__(logger, logging_enabled)
         self.pin = pin
         self.frequency = frequency
@@ -204,32 +224,43 @@ class RPiPWM(LoggingMixin, ResourceMixin, RPiPWM_API):
 # --- UART ---
 class RPiUART_API(ABC):
     """Abstract interface for UART serial communication."""
-    @abstractmethod
-    def initialize(self) -> None: pass
 
     @abstractmethod
-    def send(self, data: Union[str, bytes]) -> None: pass
+    def initialize(self) -> None:
+        pass
 
     @abstractmethod
-    def receive(self, size: int = 1) -> bytes: pass
+    def send(self, data: Union[str, bytes]) -> None:
+        pass
 
     @abstractmethod
-    def readline(self) -> bytes: pass
+    def receive(self, size: int = 1) -> bytes:
+        pass
 
     @abstractmethod
-    def release(self) -> None: pass
+    def readline(self) -> bytes:
+        pass
+
+    @abstractmethod
+    def release(self) -> None:
+        pass
+
+
 class RPiUART(LoggingMixin, ResourceMixin, RPiUART_API):
     """
     UART interface using pyserial on Raspberry Pi.
     """
-    def __init__(self,
-                 port: str = '/dev/serial0',
-                 baudrate: int = 9600,
-                 timeout: float = 1.0,
-                 parity: Any = serial.PARITY_NONE,
-                 stopbits: Any = serial.STOPBITS_ONE,
-                 logger: Optional[logging.Logger] = None,
-                 logging_enabled: bool = True) -> None:
+
+    def __init__(
+        self,
+        port: str = "/dev/serial0",
+        baudrate: int = 9600,
+        timeout: float = 1.0,
+        parity: Any = serial.PARITY_NONE,
+        stopbits: Any = serial.STOPBITS_ONE,
+        logger: Optional[logging.Logger] = None,
+        logging_enabled: bool = True,
+    ) -> None:
         super().__init__(logger, logging_enabled)
         self.port = port
         self.baudrate = baudrate
@@ -248,7 +279,7 @@ class RPiUART(LoggingMixin, ResourceMixin, RPiUART_API):
             baudrate=self.baudrate,
             timeout=self.timeout,
             parity=self.parity,
-            stopbits=self.stopbits
+            stopbits=self.stopbits,
         )
         self._log(f"Initialized UART on {self.port} at {self.baudrate}bps")
 
@@ -261,7 +292,7 @@ class RPiUART(LoggingMixin, ResourceMixin, RPiUART_API):
             "baudrate": self.baudrate,
             "timeout": self.timeout,
             "parity": self.parity,
-            "stopbits": self.stopbits
+            "stopbits": self.stopbits,
         }
 
     def send(self, data: Union[str, bytes]) -> None:
@@ -290,37 +321,59 @@ class RPiUART(LoggingMixin, ResourceMixin, RPiUART_API):
             self._log(f"Closed UART on {self.port}")
 
 
-
 # --- I2C ---
 class RPiI2C_API(ABC):
     """Abstract interface for I2C communication."""
+
     @abstractmethod
-    def scan(self) -> List[int]: pass
+    def scan(self) -> List[int]:
+        pass
+
     @abstractmethod
-    def read(self, address: int, register: int, length: int) -> List[int]: pass
+    def read(self, address: int, register: int, length: int) -> List[int]:
+        pass
+
     @abstractmethod
-    def write(self, address: int, register: int, data: List[int]) -> None: pass
+    def write(self, address: int, register: int, data: List[int]) -> None:
+        pass
+
     @abstractmethod
-    def read_byte(self, address: int) -> int: pass
+    def read_byte(self, address: int) -> int:
+        pass
+
     @abstractmethod
-    def write_byte(self, address: int, value: int) -> None: pass
+    def write_byte(self, address: int, value: int) -> None:
+        pass
+
     @abstractmethod
-    def read_word(self, address: int, register: int) -> int: pass
+    def read_word(self, address: int, register: int) -> int:
+        pass
+
     @abstractmethod
-    def write_word(self, address: int, register: int, value: int) -> None: pass
+    def write_word(self, address: int, register: int, value: int) -> None:
+        pass
+
     @abstractmethod
-    def enable_logging(self) -> None: pass
+    def enable_logging(self) -> None:
+        pass
+
     @abstractmethod
-    def disable_logging(self) -> None: pass
+    def disable_logging(self) -> None:
+        pass
+
+
 class RPiI2C(LoggingMixin, ResourceMixin, RPiI2C_API):
     """
     I2C interface using smbus2.
     """
-    def __init__(self,
-                 bus_number: int = 1,
-                 frequency: int = 100000,
-                 logger: Optional[logging.Logger] = None,
-                 logging_enabled: bool = True) -> None:
+
+    def __init__(
+        self,
+        bus_number: int = 1,
+        frequency: int = 100000,
+        logger: Optional[logging.Logger] = None,
+        logging_enabled: bool = True,
+    ) -> None:
         super().__init__(logger, logging_enabled)
         if bus_number not in (0, 1):
             raise ValueError("I2C bus must be 0 or 1")
@@ -328,24 +381,23 @@ class RPiI2C(LoggingMixin, ResourceMixin, RPiI2C_API):
         self.frequency = frequency
         self.bus: Optional[SMBus] = None
 
-    def get_required_resources(self) -> Dict[str, List[Union[int,str]]]:
-        return {"pins": [2,3] if self.bus_number==1 else [0,1],
-                "ports": [f"/dev/i2c-{self.bus_number}"]}
+    def get_required_resources(self) -> Dict[str, List[Union[int, str]]]:
+        return {
+            "pins": [2, 3] if self.bus_number == 1 else [0, 1],
+            "ports": [f"/dev/i2c-{self.bus_number}"],
+        }
 
     def initialize(self) -> None:
         """Open I2C bus."""
         self.bus = SMBus(self.bus_number)
         self._log(f"Initialized I2C bus {self.bus_number} at {self.frequency}Hz")
-    
+
     def get_initialized_params(self) -> Dict[str, Any]:
         """
         Return the I2C configuration parameters after initialization.
         """
-        return {
-            "bus_number": self.bus_number,
-            "frequency": self.frequency
-        }
-    
+        return {"bus_number": self.bus_number, "frequency": self.frequency}
+
     def scan(self) -> List[int]:
         """Scan for I2C devices."""
         devices: List[int] = []
@@ -400,34 +452,53 @@ class RPiI2C(LoggingMixin, ResourceMixin, RPiI2C_API):
 # --- SPI ---
 class RPiSPI_API(ABC):
     """Abstract interface for SPI communication."""
+
     @abstractmethod
-    def transfer(self, data: List[int]) -> List[int]: pass
+    def transfer(self, data: List[int]) -> List[int]:
+        pass
+
     @abstractmethod
-    def transfer_bytes(self, data: bytes) -> bytes: pass
+    def transfer_bytes(self, data: bytes) -> bytes:
+        pass
+
     @abstractmethod
-    def write_bytes(self, data: List[int]) -> None: pass
+    def write_bytes(self, data: List[int]) -> None:
+        pass
+
     @abstractmethod
-    def read_bytes(self, length: int) -> List[int]: pass
+    def read_bytes(self, length: int) -> List[int]:
+        pass
+
     @abstractmethod
-    def transfer2(self, data: List[int]) -> List[int]: pass
+    def transfer2(self, data: List[int]) -> List[int]:
+        pass
+
     @abstractmethod
-    def enable_logging(self) -> None: pass
+    def enable_logging(self) -> None:
+        pass
+
     @abstractmethod
-    def disable_logging(self) -> None: pass
+    def disable_logging(self) -> None:
+        pass
+
+
 class RPiSPI(LoggingMixin, ResourceMixin, RPiSPI_API):
     """
     SPI interface using spidev.
     """
-    def __init__(self,
-                 bus: int = 0,
-                 device: int = 0,
-                 max_speed_hz: int = 500000,
-                 mode: int = 0,
-                 bits_per_word: int = 8,
-                 cs_high: bool = False,
-                 lsbfirst: bool = False,
-                 logger: Optional[logging.Logger] = None,
-                 logging_enabled: bool = True) -> None:
+
+    def __init__(
+        self,
+        bus: int = 0,
+        device: int = 0,
+        max_speed_hz: int = 500000,
+        mode: int = 0,
+        bits_per_word: int = 8,
+        cs_high: bool = False,
+        lsbfirst: bool = False,
+        logger: Optional[logging.Logger] = None,
+        logging_enabled: bool = True,
+    ) -> None:
         super().__init__(logger, logging_enabled)
         self.bus = bus
         self.device = device
@@ -438,7 +509,7 @@ class RPiSPI(LoggingMixin, ResourceMixin, RPiSPI_API):
         self.lsbfirst = lsbfirst
         self.spi = spidev.SpiDev()
 
-    def get_required_resources(self) -> Dict[str, List[Union[int,str]]]:
+    def get_required_resources(self) -> Dict[str, List[Union[int, str]]]:
         return {"ports": [f"/dev/spidev{self.bus}.{self.device}"]}
 
     def initialize(self) -> None:
@@ -462,9 +533,9 @@ class RPiSPI(LoggingMixin, ResourceMixin, RPiSPI_API):
             "mode": self.mode,
             "bits_per_word": self.bits_per_word,
             "cs_high": self.cs_high,
-            "lsbfirst": self.lsbfirst
+            "lsbfirst": self.lsbfirst,
         }
-    
+
     def transfer(self, data: List[int]) -> List[int]:
         """Full-duplex SPI transfer (list of ints)."""
         resp = self.spi.xfer(data)
@@ -568,8 +639,8 @@ class RPiSPI(LoggingMixin, ResourceMixin, RPiSPI_API):
 #             "pin": self.pin,
 #             "devices": [Path(d).name for d in self.device_files]
 #         }
-    
-#     def list_devices(self) -> List[str]:
+#
+#    def list_devices(self) -> List[str]:
 #         """Return list of attached 1-Wire device IDs."""
 #         ids=[]
 #         for d in self.device_files:
@@ -746,52 +817,65 @@ class RPiSPI(LoggingMixin, ResourceMixin, RPiSPI_API):
 # --- Hardware PWM via GPIO hardware channels ---
 class RPiHardwarePWM_API(ABC):
     """Abstract interface for hardware PWM outputs."""
+
     @abstractmethod
-    def set_duty_cycle(self, duty_cycle: float) -> None: pass
+    def set_duty_cycle(self, duty_cycle: float) -> None:
+        pass
+
     @abstractmethod
-    def set_frequency(self, frequency: float) -> None: pass
+    def set_frequency(self, frequency: float) -> None:
+        pass
+
     @abstractmethod
-    def enable_logging(self) -> None: pass
+    def enable_logging(self) -> None:
+        pass
+
     @abstractmethod
-    def disable_logging(self) -> None: pass
+    def disable_logging(self) -> None:
+        pass
+
 
 class RPiHardwarePWM(LoggingMixin, ResourceMixin, RPiHardwarePWM_API):
     """
     Hardware PWM via RPi.GPIO on supported pins.
     """
-    def __init__(self,
-                 pin: int,
-                 frequency: float = 1000.0,
-                 logger: Optional[logging.Logger]=None,
-                 logging_enabled: bool=True) -> None:
-        super().__init__(logger, logging_enabled)
-        self.pin=pin
-        self.frequency=frequency
-        self._pwm: Optional[GPIO.PWM]=None
 
-    def get_required_resources(self) -> Dict[str,List[int]]:
-        return {"pins":[self.pin]}
+    def __init__(
+        self,
+        pin: int,
+        frequency: float = 1000.0,
+        logger: Optional[logging.Logger] = None,
+        logging_enabled: bool = True,
+    ) -> None:
+        super().__init__(logger, logging_enabled)
+        self.pin = pin
+        self.frequency = frequency
+        self._pwm: Optional[GPIO.PWM] = None
+
+    def get_required_resources(self) -> Dict[str, List[int]]:
+        return {"pins": [self.pin]}
 
     def initialize(self) -> None:
         """Start hardware PWM on pin."""
         GPIO.setmode(GPIO.BCM)
-        GPIO.setup(self.pin,GPIO.OUT)
-        self._pwm=GPIO.PWM(self.pin,self.frequency)
+        GPIO.setup(self.pin, GPIO.OUT)
+        self._pwm = GPIO.PWM(self.pin, self.frequency)
         self._pwm.start(0)
         self._log(f"Hardware PWM started on pin {self.pin} at {self.frequency}Hz")
 
-    def set_duty_cycle(self,duty_cycle:float)->None:
+    def set_duty_cycle(self, duty_cycle: float) -> None:
         """Adjust hardware PWM duty cycle."""
         self._pwm.ChangeDutyCycle(duty_cycle)
         self._log(f"Hardware PWM duty_cycle set to {duty_cycle}% on pin {self.pin}")
 
-    def set_frequency(self,frequency:float)->None:
+    def set_frequency(self, frequency: float) -> None:
         """Adjust hardware PWM frequency."""
         self._pwm.ChangeFrequency(frequency)
         self._log(f"Hardware PWM frequency set to {frequency}Hz on pin {self.pin}")
 
-    def release(self)->None:
+    def release(self) -> None:
         """Stop hardware PWM and clean up."""
-        if self._pwm: self._pwm.stop()
+        if self._pwm:
+            self._pwm.stop()
         GPIO.cleanup(self.pin)
         self._log(f"Hardware PWM stopped and cleaned up pin {self.pin}")

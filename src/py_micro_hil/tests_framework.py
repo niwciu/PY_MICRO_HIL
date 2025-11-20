@@ -12,6 +12,7 @@ from py_micro_hil.utils.system import is_raspberry_pi
 # ABSTRACT BASE CLASS
 # =============================================================================
 
+
 class Peripheral(ABC):
     """
     Abstract base class for a peripheral device.
@@ -33,6 +34,7 @@ class Peripheral(ABC):
 # =============================================================================
 # CORE TEST FRAMEWORK
 # =============================================================================
+
 
 class TestFramework:
     """
@@ -77,7 +79,7 @@ class TestFramework:
             self.logger.log(
                 "\n[WARNING] Framework running outside Raspberry Pi. "
                 "Hardware peripherals will be mocked.",
-                to_console=True
+                to_console=True,
             )
 
         # --- Initialization phase ---
@@ -98,7 +100,9 @@ class TestFramework:
             group.run_tests(self)
 
         # --- Cleanup phase ---
-        self.logger.log("\n==================== RESOURCE CLEANUP ====================", to_console=True)
+        self.logger.log(
+            "\n==================== RESOURCE CLEANUP ====================", to_console=True
+        )
         try:
             rel = getattr(self.peripheral_manager, "release_all", None)
             if not callable(rel):
@@ -144,11 +148,7 @@ class TestFramework:
             self.logger.log(summary, to_console=False, to_log_file=True)
 
     def report_test_result(
-        self,
-        group_name: str,
-        test_name: str,
-        passed: bool,
-        details: Optional[str] = None
+        self, group_name: str, test_name: str, passed: bool, details: Optional[str] = None
     ) -> None:
         """Record and log the result of a single test."""
         self.total_tests += 1
@@ -170,13 +170,15 @@ class TestFramework:
 
         # Append entry for HTML report
         if getattr(self.logger, "html_file", None):
-            self.logger.log_entries.append({
-                "group_name": group_name,
-                "test_name": test_name,
-                "level": status,
-                "message": details or "",
-                "additional_info": "-"
-            })
+            self.logger.log_entries.append(
+                {
+                    "group_name": group_name,
+                    "test_name": test_name,
+                    "level": status,
+                    "message": details or "",
+                    "additional_info": "-",
+                }
+            )
 
     def report_test_info(self, group_name: str, test_name: str, message: str) -> None:
         """Log an informational message during a test."""
@@ -190,10 +192,12 @@ class TestFramework:
 # TEST GROUP
 # =============================================================================
 
+
 class TestGroup:
     """
     Represents a logical group of tests with optional setup and teardown functions.
     """
+
     __test__ = False  # prevent pytest from collecting this class
 
     def __init__(self, name: str, test_file: Optional[str] = None) -> None:
@@ -230,12 +234,16 @@ class TestGroup:
             try:
                 self.setup(framework)
             except Exception as e:
-                framework.logger.log(f"[ERROR] Setup for group '{self.name}' failed: {e}", to_console=True)
+                framework.logger.log(
+                    f"[ERROR] Setup for group '{self.name}' failed: {e}", to_console=True
+                )
                 framework.fail_count += 1
 
         # --- Run all tests ---
         if not self.tests:
-            framework.logger.log(f"[WARNING] No tests found in group '{self.name}'.", to_console=True)
+            framework.logger.log(
+                f"[WARNING] No tests found in group '{self.name}'.", to_console=True
+            )
         else:
             for test in self.tests:
                 test.run(framework, self.name)
@@ -245,7 +253,9 @@ class TestGroup:
             try:
                 self.teardown(framework)
             except Exception as e:
-                framework.logger.log(f"[WARNING] Teardown for group '{self.name}' raised: {e}", to_console=True)
+                framework.logger.log(
+                    f"[WARNING] Teardown for group '{self.name}' raised: {e}", to_console=True
+                )
                 framework.fail_count += 1
 
         framework.logger.log(f"[INFO] Finished test group: {self.name}", to_console=True)
@@ -255,8 +265,10 @@ class TestGroup:
 # TEST WRAPPER
 # =============================================================================
 
+
 class Test:
     """Wraps a single test function with a name for reporting."""
+
     __test__ = False  # prevent pytest from collecting this class
 
     def __init__(self, name: str, test_func: Any, original_func: Optional[Any] = None) -> None:

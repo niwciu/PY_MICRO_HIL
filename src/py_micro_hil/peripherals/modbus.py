@@ -68,7 +68,7 @@ class ModbusRTU_API(ABC):
 
 
 class ModbusRTU(ModbusRTU_API):
-    def __init__(self, port='/dev/ttyUSB0', baudrate=115200, stopbits=1, parity='N', timeout=1):
+    def __init__(self, port="/dev/ttyUSB0", baudrate=115200, stopbits=1, parity="N", timeout=1):
         """
         Class for handling Modbus RTU communication.
         :param port: Serial port for communication.
@@ -99,7 +99,7 @@ class ModbusRTU(ModbusRTU_API):
             baudrate=self.baudrate,
             stopbits=self.stopbits,
             parity=self.parity,
-            timeout=self.timeout
+            timeout=self.timeout,
         )
         if not self.client.connect():
             raise ConnectionError(f"Unable to connect to Modbus RTU server on port {self.port}.")
@@ -120,7 +120,7 @@ class ModbusRTU(ModbusRTU_API):
             "baudrate": self.baudrate,
             "stopbits": self.stopbits,
             "parity": self.parity,
-            "timeout": self.timeout
+            "timeout": self.timeout,
         }
 
     def read_holding_registers(self, slave_address, address, count):

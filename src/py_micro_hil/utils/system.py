@@ -1,5 +1,3 @@
-import platform
-
 def is_raspberry_pi() -> bool:
     """Sprawdza, czy skrypt działa na Raspberry Pi."""
     try:
