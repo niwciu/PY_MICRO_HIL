@@ -43,11 +43,11 @@ cd PY_MICRO_HIL
 pip install -e .
 ```
 
-> 💡 On Raspberry Pi systems, you can use the flag `--break-system-packages` to simplify installation in CI/CD environments:
+> 💡 On your hil test server, you can use the flag `--break-system-packages` to simplify installation and usage for CI/CD environments:
 > ```bash
 > pip install py-micro-hil --break-system-packages
 > ```
-> It will make your life easier whe using it in serices like GitHub Actions
+> It will make your life easier whe using it in services like GitHub Actions
 
 ### dependencies
 
