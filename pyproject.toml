@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "py-micro-hil"
+version = "0.1.3"
+description = "Hardware-in-the-Loop testing framework"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [
+    { name = "niwciu", email = "niwciu@gmail.com" }
+]
+dependencies = [
+    "pyserial",
+    "yaml",
+    "RPi.GPIO",
+    "spidev",
+    "pymodbus",
+    "smbus2",
+    "jinja2"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "flake8",
+    "black",
+    "build",
+    "twine"
+]
+
+[project.urls]
+Homepage = "https://github.com/sandra/py-micro-hil"
+Repository = "https://github.com/sandra/py-micro-hil"
+Issues = "https://github.com/sandra/py-micro-hil/issues"
+
+[project.scripts]
+hiltest = "py_micro_hil.cli:main"
+
+[tool.black]
+line-length = 100
+
+[tool.flake8]
+max-line-length = 100
+ignore = ["E203", "W503"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,103 +1,221 @@
-# PY_MICRO_HIL
+# Py-Micro-HIL
 
-PY_MICRO_HIL is a flexible and modular Hardware-in-the-Loop (HIL) testing framework designed for validating and verifying embedded systems. This framework supports the integration of hardware peripherals and communication protocols such as Modbus for comprehensive testing.
+> **Py-Micro-HIL** is a modular, lightweight **Hardware-in-the-Loop (HIL) testing framework** for Python.  
+> It provides a unified interface for testing embedded systems, sensors, and communication buses  
+> (Modbus RTU, SPI, I2C, UART, GPIO) both on **Raspberry Pi hardware** and in **PC simulation mode**.
 
-## Features
+---
 
-- **Peripheral Management:** Configure and control hardware peripherals with ease using YAML configuration files.
-- **Protocol Support:** Includes built-in support for Modbus communication.
-- **Test Framework:** Modular and scalable testing framework for defining and running test cases.
-- **Logging:** Enhanced logging with colored output for better readability.
-- **Extensibility:** Easily extendable to support additional peripherals and protocols.
+## 🚀 Overview
 
-## Project Structure
+**Py-Micro-HIL** enables automated functional and integration testing of embedded systems.  
+It supports both **real hardware execution** on Raspberry Pi and **simulated environments** on any PC.
 
-```
-PY_MICRO_HIL/
-├── core/                   # Core functionality
-│   ├── RPiPeripherals.py   # Raspberry Pi peripheral management
-│   ├── assertions.py       # Assertion functions for test validations
-│   ├── logger.py           # Logging utility
-│   ├── peripheral_config_loader.py  # YAML configuration loader
-│   ├── peripheral_manager.py        # Peripheral manager
-│   ├── protocols.py        # Communication protocol handlers
-│   ├── test_framework.py   # Main testing framework
-│   ├── test_group_factory.py  # Test group management
-│   └── __init__.py         # Module initializer
-├── tests/                  # Test definitions
-│   ├── group2_runner.py    # Runner for group 2 tests
-│   ├── group2_tests.py     # Test cases for group 2
-│   ├── group3_runner.py    # Runner for group 3 tests
-│   ├── group3_tests.py     # Test cases for group 3
-│   ├── modbus_communication_runner.py  # Modbus tests runner
-│   ├── modbus_communication_tests.py   # Modbus test cases
-│   └── __init__.py         # Module initializer
-├── peripherals_config.yaml # Peripheral configuration file
-├── requirements.txt        # Python dependencies
-├── run_tests.py            # Entry point for running tests
-├── dependencies.txt        # Additional dependencies
-└── .gitignore              # Git ignored files
-```
+With this framework you can:
+- Write and organize test suites for hardware peripherals.
+- Interface with GPIO, SPI, I2C, UART, or Modbus RTU devices.
+- Use mocks for offline or CI/CD testing.
+- Generate structured HTML and console reports.
+- Integrate easily with pipelines or GitHub Actions.
 
-## Requirements
+---
 
-- Python 3.8 or later
-- Hardware peripherals for embedded systems (optional for actual hardware testing)
-- Required Python packages (see `requirements.txt`)
+## 🔗 Documentation
 
-## Installation
+📚 Full developer and user documentation is available here:  
+➡️ [https://niwciu.github.io/PY_MICRO_HIL](https://niwciu.github.io/PY_MICRO_HIL)
 
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd PY_MICRO_HIL
-   ```
+---
 
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+## ⚙️ Installation
 
-3. Configure your peripherals:
-   - Edit the `peripherals_config.yaml` file to match your hardware setup.
+### 🧰 Option 1 – From PyPI (recommended for most users)
 
-## Usage
-
-### Running Tests
-To run all tests, execute:
 ```bash
-python run_tests.py
+pip install py-micro-hil
 ```
 
-### Adding New Tests
-1. Create a new test group in the `tests/` directory.
-2. Define your test cases in a Python file (e.g., `groupX_tests.py`).
-3. Create a runner script for your new group (e.g., `groupX_runner.py`).
-4. Use the `TestFramework` and `TestGroup` classes to structure your tests.
+### 🧪 Option 2 – From source (for contributors)
 
-### Peripheral Configuration
-Edit the `peripherals_config.yaml` file to define your hardware peripherals, communication protocols, and any additional parameters. Example:
+```bash
+git clone https://github.com/niwciu/PY_MICRO_HIL.git
+cd PY_MICRO_HIL
+pip install -e .
+```
+
+> 💡 On Raspberry Pi systems, you can use the flag `--break-system-packages` to simplify installation in CI/CD environments:
+> ```bash
+> pip install py-micro-hil --break-system-packages
+> ```
+> It will make your life easier whe using it in serices like GitHub Actions
+
+### dependencies
+
+```
+pymodbus, pytest, smbus2, spidev, pyserial
+```
+
+### Developer setup
+
+For development and contribution:
+
+```bash
+git clone https://github.com/niwciu/PY_MICRO_HIL.git
+cd PY_MICRO_HIL
+pip install -e .[dev]
+```
+
+---
+
+## 🧩 Example usage
+
+### 1️⃣ Create a configuration file
+
+In the project root for your project hil tests main folder, create a file `peripherals_config.yaml`, for example:
+
 ```yaml
 peripherals:
-  - name: sensor1
-    type: gpio
-    pin: 17
-  - name: modbus_device
-    type: modbus
-    address: 0x01
+  gpio:
+    - pin: 17
+      mode: out
+      initial: low
+    - pin: 18
+      mode: in
 ```
 
-## Contribution Guidelines
+Full configuration reference:  
+📖 [Configuration and YAML guide →](https://niwciu.github.io/PY_MICRO_HIL/configuration/)
 
-1. Fork the repository.
-2. Create a feature branch.
-3. Commit your changes with descriptive messages.
-4. Submit a pull request.
+---
 
-## License
+### 2️⃣ Create test files
 
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+Create a directory named `hil_tests/` and add your test groups there.  
+Each .py file should start it's name from **test** and represents a **test group**.
 
-## Support
+Example: `hil_tests/test_gpio_led.py`
 
-If you encounter any issues or have questions, feel free to open an issue or contact the maintainers.
+```python
+from py_micro_hil.assertions import *
+from py_micro_hil.framework_API import *
+
+def setup_group():
+    TEST_INFO_MESSAGE("Setting up gpio led test group")
+
+def teardown_group():
+    TEST_INFO_MESSAGE("Tearing down gpio led test group")
+
+def test_led_toggle():
+    gpio = get_RPiGPIO_peripheral()
+    gpio.write(17, 1)
+    TEST_
+    TEST_ASSERT_EQUAL (1, gpio.read(18))
+```
+
+---
+
+### 3️⃣ Run the tests
+Before running tests check available options by typing:
+```bash
+hilltest --help
+```
+
+Use the built-in **CLI runner**:
+
+```bash
+hiltests --config ./peripherals_config.yaml --tests ./hil_tests
+```
+
+If both the YAML configuration and the `hil_tests` folder are in the same directory,  
+simply open this directory and run:
+
+```bash
+hiltests
+```
+
+---
+
+### 4️⃣ Generate reports
+
+`Py-Micro-HIL` can generate both **console log files** and **HTML reports**.
+
+Example:
+
+```bash
+hiltests --log ./reports/log.txt
+```
+
+or
+
+```bash
+hiltests --html ./reports/report.html
+```
+
+Reports can be customized with name and path.  
+See: [Reports and Logging →](https://niwciu.github.io/PY_MICRO_HIL/reports/)
+
+---
+
+## 💡 Features
+
+- ✅ Unified test structure (`TestFramework`, `TestGroup`, `Test`)  
+- ✅ Automatic setup/teardown with context isolation  
+- ✅ YAML-driven configuration system  
+- ✅ Dynamic test discovery (`tests_group_factory`)  
+- ✅ Mock peripherals for PC environment (not RPi) 
+- ✅ Full logging and HTML report generation  
+- ✅ Native CLI interface (`hiltests`)  
+- ✅ Compatible with Raspberry Pi and Linux hosts  
+
+---
+
+## 🧰 Supported peripherals & protocols
+
+| Peripheral | Class | Description |
+|-------------|--------|-------------|
+| **GPIO** | `RPiGPIO` | Digital I/O control |
+| **PWM** | `RPiPWM`, `RPiHardwarePWM` | Software and hardware PWM |
+| **UART** | `RPiUART` | Serial communication via `pyserial` |
+| **I²C** | `RPiI2C` | SMBus-compatible interface |
+| **SPI** | `RPiSPI` | SPI interface via `spidev` |
+| **Modbus RTU** | `ModbusRTU` | RS-485 communication via `pymodbus` |
+
+> 🧩 These are the currently implemented peripherals.  
+> You can easily extend the framework by adding your own peripherals in the  
+> `src/py_micro_hil/peripherals/` directory and implementing the required abstract interfaces.  
+> The developer documentation includes full guidance on this process.
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions from the community!  
+Please ensure your code follows **PEP-8** style and includes tests.
+
+1. Fork this repository  
+2. Clone and install in development mode:
+   ```bash
+   git clone <link to your fork>.git
+   cd PY_MICRO_HIL
+   pip install -e .[dev]
+   ```
+3. Create a new branch:
+   ```bash
+   git checkout -b feature/my-feature
+   ```
+4. Make your changes and test:
+   ```bash
+   pytest -v
+   ```
+5. Submit a pull request with a clear description and test coverage.
+
+Full contribution guide:  
+📘 [Developer Guide →](https://niwciu.github.io/PY_MICRO_HIL/contributing/)
+
+---
+
+## 📄 License
+
+MIT License © 2025 – [@niwciu](https://github.com/niwciu)
+
+---

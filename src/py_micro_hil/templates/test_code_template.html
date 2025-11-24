@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Code for {{ group_name }}</title>
+    <link rel="stylesheet" href="styles.css">
+    <script>
+        function applySavedTheme() {
+            const savedTheme = sessionStorage.getItem('selectedTheme');
+            if (savedTheme) {
+                document.body.className = savedTheme;
+                const themeSelect = document.getElementById('theme-select');
+                if (themeSelect) {
+                    themeSelect.value = savedTheme;
+                }
+            }
+        }
+
+        function changeTheme() {
+            const selectedTheme = document.getElementById('theme-select').value;
+            document.body.className = selectedTheme;
+            sessionStorage.setItem('selectedTheme', selectedTheme);
+            applyPrismTheme(); // Update Prism theme dynamically when theme changes
+        }
+
+        function applyPrismTheme() {
+            const savedTheme = sessionStorage.getItem('selectedTheme');
+            const existingPrismLink = document.querySelector('link[data-prism-theme]');
+            if (existingPrismLink) {
+                existingPrismLink.remove();
+            }
+
+            const prismLink = document.createElement('link');
+            prismLink.rel = 'stylesheet';
+            prismLink.setAttribute('data-prism-theme', 'true');
+
+            if (savedTheme === 'light-theme') {
+                prismLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css';
+            } else {
+                prismLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css';
+            }
+
+            prismLink.onload = () => {
+                Prism.highlightAll(); // Reapply syntax highlighting after the theme loads
+            };
+
+            document.head.appendChild(prismLink);
+        }
+
+        function highlightSection(sectionId) {
+            document.querySelectorAll('.test-code.highlight-persistent').forEach(section => {
+                section.classList.remove('highlight-persistent');
+            });
+
+            const section = document.getElementById(sectionId);
+            if (section) {
+                section.classList.add('highlight-temporary');
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+                setTimeout(() => {
+                    section.classList.remove('highlight-temporary');
+                    section.classList.add('highlight-persistent');
+                }, 2000);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            applySavedTheme();
+            applyPrismTheme();
+
+            const hash = window.location.hash.substring(1);
+            if (hash) {
+                highlightSection(hash);
+            }
+        });
+    </script>
+    <!-- Prism.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+</head>
+<body>
+    <div class="theme-switcher">
+        <label for="theme-select">Choose Theme:</label>
+        <select id="theme-select" onchange="changeTheme()">
+            <option value="">Dark Theme</option>
+            <option value="light-theme">Light Theme</option>
+        </select>
+    </div>
+    <div class="container">
+        <h1>Test Code for {{ group_name }}</h1>
+        {% if tests %}
+            {% for test in tests %}
+            <div class="test-code" id="{{ test.id }}">
+                <h2>{{ test.test_name }}</h2>
+                <pre><code class="language-python">{{ test.code }}</code></pre>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p>No test cases available for this group.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

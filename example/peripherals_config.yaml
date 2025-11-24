@@ -1,0 +1,60 @@
+protocols:
+  # modbus:
+  #   port: /dev/ttyUSB0
+  #   baudrate: 115200
+  #   parity: N
+  #   stop_bits: 1
+  #   timeout: 2
+
+peripherals:
+  # --- Digital I/O ---
+  gpio:
+    - pin: 17
+      mode: out
+      initial: low
+    - pin: 18
+      mode: in
+
+  # --- Software PWM (via RPiGPIO.PWM) ---
+  pwm:
+    - pin: 12
+      frequency: 1000
+
+  # --- Hardware PWM (sprzętowe kanały PWM) ---
+  hardware_pwm:
+    - pin: 13
+      frequency: 500
+
+  # --- UART ---
+  uart:
+    port: /dev/serial0
+    baudrate: 9600
+
+  # --- I²C ---
+  i2c:
+    bus: 1
+    frequency: 100000
+
+  # --- SPI ---
+  spi:
+    bus: 0
+    device: 0
+    max_speed_hz: 1000000
+    mode: 0
+    bits_per_word: 8
+    cs_high: false
+    lsbfirst: false
+    timeout: 1
+
+  # # --- ADC (np. MCP3008) via SPI ---
+  # adc:
+  #   channel: 0
+
+  # # --- CAN (SocketCAN) ---
+  # can:
+  #   interface: can0
+  #   bitrate: 500000
+
+  # # --- 1-Wire (DS18B20 itp.) ---
+  # one_wire:
+  #   pin: 4

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Test Report</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Centralized initialization logic
+        function initializePage() {
+            applySavedTheme();
+            generatePieChart();
+        }
+        function applySavedTheme() {
+            const savedTheme = sessionStorage.getItem('selectedTheme');
+            if (savedTheme) {
+                document.body.className = savedTheme;
+                const themeSelect = document.getElementById('theme-select');
+                if (themeSelect) {
+                    themeSelect.value = savedTheme;
+                }
+            }
+        }
+
+        function changeTheme() {
+            const selectedTheme = document.getElementById('theme-select').value;
+            document.body.className = selectedTheme;
+            sessionStorage.setItem('selectedTheme', selectedTheme);
+        }
+
+        // Group and test management functions
+        function toggleGroup(groupId) {
+            const groupContent = document.getElementById(groupId);
+            groupContent.classList.toggle('hidden');
+        }
+
+        function toggleAllGroups() {
+            const groupContents = document.querySelectorAll('.group-content');
+            const toggleButton = document.getElementById('toggleButton');
+            const isHidden = toggleButton.innerText === 'Show All';
+
+            document.querySelectorAll('tbody tr').forEach(row => {
+                row.style.display = ''; // Reset row visibility
+            });
+
+            groupContents.forEach(groupContent => {
+                groupContent.classList.toggle('hidden', !isHidden);
+            });
+
+            toggleButton.innerText = isHidden ? 'Hide All' : 'Show All';
+        }
+
+        function handleSummaryClick() {
+            // Przełącz widoczność wszystkich grup
+            toggleAllGroups();
+
+            // Pobierz obecny stan przycisku, aby ustawić odpowiednią podpowiedź
+            const toggleButton = document.getElementById('toggleButton');
+            const isHidden = toggleButton.innerText === 'Show All';
+
+            // Zaktualizuj podpowiedź
+            const tooltip = document.querySelector('.item.summ');
+            if (isHidden) {
+                tooltip.setAttribute('title', 'Click to show all tests');
+            } else {
+                tooltip.setAttribute('title', 'Click to hide all tests');
+            }
+        }
+
+
+        function filterResults(status) {
+            const rows = document.querySelectorAll('tbody tr');
+            const groups = document.querySelectorAll('.group-header');
+            const groupContents = document.querySelectorAll('.group-content');
+            const toggleButton = document.getElementById('toggleButton');
+
+            toggleButton.innerText = 'Show All';
+
+            rows.forEach(row => {
+                row.style.display = (status === 'ALL' || row.classList.contains(status.toLowerCase())) ? '' : 'none';
+            });
+
+            groups.forEach((group, index) => {
+                const groupContent = groupContents[index];
+                const visibleTests = Array.from(groupContent.children).some(
+                    row => row.style.display !== 'none'
+                );
+                group.style.display = visibleTests ? '' : 'none';
+                if (status !== 'ALL' && visibleTests) {
+                    groupContent.classList.remove('hidden');
+                }
+            });
+        }
+
+        function searchTests() {
+            const input = document.getElementById('searchInput').value.toLowerCase();
+            const rows = document.querySelectorAll('tbody tr');
+            const groups = document.querySelectorAll('.group-header');
+            const groupContents = document.querySelectorAll('.group-content');
+
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(input) ? '' : 'none';
+
+                if (row.classList.contains('group-header')) {
+                    row.style.display = '';
+                }
+            });
+
+            groups.forEach((group, index) => {
+                const groupContent = groupContents[index];
+                const visibleTests = Array.from(groupContent.children).some(
+                    row => row.style.display !== 'none'
+                );
+                group.style.display = visibleTests ? '' : 'none';
+            });
+        }
+
+        // Chart generation
+        function generatePieChart() {
+            const ctxPie = document.getElementById('testChart').getContext('2d');
+            new Chart(ctxPie, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [{{ passed }}, {{ failed }}],
+                        backgroundColor: ['#27ae60', '#e74c3c'],
+                    }]
+                },
+                options: {
+                    responsive: true
+                }
+            });
+        }
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', initializePage);
+
+    </script>
+</head>
+<body>
+    <div class="header">
+        <div class="theme-switcher">
+            <label for="theme-select">Choose Theme:</label>
+            <select id="theme-select" onchange="changeTheme()">
+                <option value="">Dark Theme</option>
+                <option value="light-theme">Light Theme</option>
+            </select>
+        </div>
+        <div class="logo">Test Report</div>
+        <!-- <nav class="navigation">
+            <a href="#summary">Summary</a>
+            <a href="#filters">Filters</a>
+            <a href="#table">Test Details</a>
+            <a href="#download">Download PDF</a>
+        </nav> -->
+        <div class="search-container">
+            <input type="text" id="searchInput" onkeyup="searchTests()" placeholder="Search for tests..." />
+        </div>
+    </div>
+    <div class="container">
+        <h1>Responsive Test Report</h1>
+        <div class="summary">
+            <div class="item summ" onclick="handleSummaryClick()" title="Click to toggle all tests">
+                <span>{{ total_tests }}</span>
+                <small>Total Tests</small>
+            </div>
+            <div class="item pass" onclick="filterResults('PASS')" title="Click to show all PASS tests">
+                <span>{{ passed }}</span>
+                <small>PASS {{ pass_percentage }}%</small>
+            </div>
+            <div class="item fail" onclick="filterResults('FAIL')" title="Click to show all FAIL tests">
+                <span>{{ failed }}</span>
+                <small>FAIL {{ fail_percentage }}%</small>
+            </div>
+            <div class="chart-container">
+                <canvas id="testChart"></canvas>
+            </div>
+        </div>
+        <div class="search-container">
+            <input type="text" id="searchInput" onkeyup="searchTests()" placeholder="Search for tests..." />
+        </div>
+        <div class="filter-buttons">
+            <button id="toggleButton" onclick="toggleAllGroups()">Show All</button>
+            <button onclick="filterResults('PASS')">Show PASS</button>
+            <button onclick="filterResults('FAIL')">Show FAIL</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Group / Test Name</th>
+                    <th>Details</th>
+                    <th>Additional Info</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for group in test_results %}
+                <tr class="group-header" onclick="toggleGroup('{{ group.id }}')">
+                    <td class="{{ group.status|lower }}">
+                        <span class="icon">{{ '✔' if group.status == 'PASS' else '✘' }}</span> {{ group.status }}
+                    </td>
+                    <td>{{ group.name }}</td>
+                    <td>{{ group.summary }}</td>
+                    <td>Click <span style="cursor: pointer;">👉</span></td>
+                </tr>
+                <tbody id="{{ group.id }}" class="group-content hidden">
+                    {% for test in group.tests %}
+                    <tr class="{{ test.status|lower }}">
+                        <td class="{{ test.status|lower }}">
+                            <span class="icon">{{ '✔' if test.status == 'PASS' else '✘' }}</span> {{ test.status }}
+                        </td>
+                        <td>{{ test.name }}</td>
+                        <td>{{ test.details }}</td>
+                        <td>
+                            {% if test.info and test.info != "N/A" %}
+                                <a href="{{ test.info }}">Test Code</a>
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>                                                                    
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
