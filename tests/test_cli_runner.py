@@ -73,7 +73,7 @@ def test_get_project_version_reads_pyproject(monkeypatch):
 
     monkeypatch.setattr(importlib.metadata, "version", raise_not_found)
     version = cli.get_project_version()
-    assert version == "0.1.3"
+    assert version == "0.1.4"
 
 
 # ---------------------------------------------------------------------
