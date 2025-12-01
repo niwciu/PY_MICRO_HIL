@@ -78,6 +78,41 @@ def test_uart_echo():
     shared_uart.send(b"ping")
     TEST_ASSERT_EQUAL(b"ping", shared_uart.receive(4))
 ```
+### Sharing peripherals across tests
+Expensive peripheral discovery or board resets can be centralized at group
+scope. Declare a module-level variable, assign it inside `setup_group()` using
+the appropriate getter, and mark it `global` so each test uses the same
+instance:
+
+```python
+def setup_group():
+    global gpio
+    gpio = get_RPiGPIO_peripheral()
+    TEST_INFO_MESSAGE("Setting up LedOutputTestGroup")
+
+
+def teardown_group():
+    TEST_INFO_MESSAGE("Tearing down LedOutputTestGroup")
+
+
+def test_GivenDutResetWhenPushbuttonLongPushThenLedIsOn():
+    reset_dut()
+
+    gpio.write("PUSHBUTTON", "LOW")
+    time.sleep(1.02)
+    gpio.write("PUSHBUTTON", "HIGH")
+    TEST_ASSERT_EQUAL(1, gpio.read("LED"))
+
+
+""" Helper routines that are *not* tests should avoid the `test_` prefix so the
+runner does not collect them. This keeps setup utilities discoverable without
+polluting results: """
+
+def reset_dut():
+    gpio.write("RST", "LOW")
+    time.sleep(0.001)
+    gpio.write("RST", "HIGH")
+```
 
 ## Minimal template
 ```python
