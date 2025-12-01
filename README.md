@@ -226,3 +226,10 @@ Full contribution guide:
 MIT License © 2025 – [@niwciu](https://github.com/niwciu)
 
 ---
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/f4825882-e285-4e02-a75c-68fc86ff5716" alt="myEmbeddedWayBanner"><br>
+
+</p>
+
+---
