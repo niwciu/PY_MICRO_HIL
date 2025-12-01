@@ -9,6 +9,7 @@ if TYPE_CHECKING:
         RPiI2C_API,
         RPiSPI_API,
         RPiHardwarePWM_API,
+        RPiOneWire_API,        # ← DODANE
     )
     from py_micro_hil.peripherals.modbus import ModbusRTU_API
 
@@ -59,3 +60,8 @@ def get_RPiSPI_peripheral() -> "RPiSPI_API":
 def get_RPiHardwarePWM_peripheral() -> "RPiHardwarePWM_API":
     """Return an instance of the hardware PWM peripheral configured for Raspberry Pi."""
     return _get_framework().peripheral_manager.get_device("peripherals", "RPiHardwarePWM")
+
+
+def get_RPiOneWire_peripheral() -> "RPiOneWire_API":
+    """Return an instance of the 1-Wire peripheral configured for Raspberry Pi."""
+    return _get_framework().peripheral_manager.get_device("peripherals", "RPiOneWire")

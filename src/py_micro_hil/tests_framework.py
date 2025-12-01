@@ -52,6 +52,7 @@ class TestFramework:
         self.fail_count = 0
         self.logger = logger
         self.report_generator = ReportGenerator(self.logger)
+        self.current_test_status: Optional[bool] = None
 
     # -------------------------------------------------------------------------
     # GROUP MANAGEMENT
@@ -151,6 +152,7 @@ class TestFramework:
         self, group_name: str, test_name: str, passed: bool, details: Optional[str] = None
     ) -> None:
         """Record and log the result of a single test."""
+        self.current_test_status = passed
         self.total_tests += 1
         status = "PASS" if passed else "FAIL"
 
@@ -168,17 +170,16 @@ class TestFramework:
         if getattr(self.logger, "log_file", None):
             self.logger.log(message, to_console=False, to_log_file=True)
 
-        # Append entry for HTML report
-        if getattr(self.logger, "html_file", None):
-            self.logger.log_entries.append(
-                {
-                    "group_name": group_name,
-                    "test_name": test_name,
-                    "level": status,
-                    "message": details or "",
-                    "additional_info": "-",
-                }
-            )
+        # Append entry for reporting (HTML or later aggregation)
+        self.logger.log_entries.append(
+            {
+                "group_name": group_name,
+                "test_name": test_name,
+                "level": status,
+                "message": details or "",
+                "additional_info": "-",
+            }
+        )
 
     def report_test_info(self, group_name: str, test_name: str, message: str) -> None:
         """Log an informational message during a test."""
@@ -230,6 +231,7 @@ class TestGroup:
             framework.logger.log(header, to_console=False, to_log_file=True)
 
         # --- Setup ---
+        setup_failed = False
         if self.setup:
             try:
                 self.setup(framework)
@@ -237,7 +239,15 @@ class TestGroup:
                 framework.logger.log(
                     f"[ERROR] Setup for group '{self.name}' failed: {e}", to_console=True
                 )
-                framework.fail_count += 1
+                framework.report_test_result(self.name, "setup", False, str(e))
+                setup_failed = True
+
+        if setup_failed:
+            framework.logger.log(
+                f"[ERROR] Skipping tests for group '{self.name}' due to setup failure.",
+                to_console=True,
+            )
+            return
 
         # --- Run all tests ---
         if not self.tests:
@@ -256,7 +266,7 @@ class TestGroup:
                 framework.logger.log(
                     f"[WARNING] Teardown for group '{self.name}' raised: {e}", to_console=True
                 )
-                framework.fail_count += 1
+                framework.report_test_result(self.name, "teardown", False, str(e))
 
         framework.logger.log(f"[INFO] Finished test group: {self.name}", to_console=True)
 
@@ -278,9 +288,12 @@ class Test:
 
     def run(self, framework: TestFramework, group_name: str) -> None:
         """Execute the test function and report its result."""
+        framework.current_test_status = None
         try:
             self.test_func(framework)
         except Exception as e:
-            framework.report_test_result(group_name, self.name, False, str(e))
+            if framework.current_test_status is not False:
+                framework.report_test_result(group_name, self.name, False, str(e))
         else:
-            framework.report_test_result(group_name, self.name, True)
+            if framework.current_test_status is None:
+                framework.report_test_result(group_name, self.name, True)

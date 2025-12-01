@@ -8,10 +8,11 @@ import spidev
 import serial
 import can
 from smbus2 import SMBus
+import py_micro_hil.peripherals.RPiPeripherals as rpi_peripherals
 
 from py_micro_hil.peripherals.RPiPeripherals import (
     RPiGPIO, RPiPWM, RPiUART, RPiI2C, RPiSPI,
-    RPiHardwarePWM, # RPi1Wire, RPiADC, RPiCAN,
+    RPiHardwarePWM, RPiOneWire
 )
 
 # --- Fix for python-can compatibility ---
@@ -95,17 +96,56 @@ def no_hardware(monkeypatch):
 
 # ==== GPIO Tests ====
 
+def test_gpio_interface_accessible_from_instance():
+    gpio = RPiGPIO({})
+
+    assert gpio.get_gpio_interface() is GPIO
+
 def test_gpio_write_read_toggle():
-    config = {5: {'mode': GPIO.OUT, 'initial': GPIO.LOW}}
+    config = {5: {'mode': GPIO.OUT, 'initial': GPIO.LOW, 'name': 'PUSHBUTTON'}}
     gpio = RPiGPIO(config)
     gpio.initialize()
-    gpio.write(5, GPIO.HIGH)
-    assert gpio.read(5) == 0  # mocked input returns 0
-    gpio.toggle(5)
+    gpio.write('PUSHBUTTON', 'HIGH')
+    assert gpio.read('pushbutton') == 0  # mocked input returns 0
+    gpio.toggle('PUSHBUTTON')
+
+
+def test_gpio_value_normalization_and_name_errors():
+    gpio = RPiGPIO({7: {'mode': GPIO.OUT, 'initial': GPIO.LOW, 'name': 'LED'}})
+    gpio.initialize()
+
+    gpio.write('led', 'low')
+    gpio.write(7, 1)
+
+    with pytest.raises(ValueError):
+        gpio.write('UNKNOWN', 1)
+
+    with pytest.raises(ValueError):
+        gpio.write(7, 'INVALID')
 
 def test_gpio_required_resources():
     gpio = RPiGPIO({4: {"mode": GPIO.OUT, "initial": GPIO.LOW}})
     assert gpio.get_required_resources() == {"pins": [4]}
+
+
+def test_gpio_label_constants_and_combined_config():
+    config = {
+        23: {"mode": GPIO.OUT, "initial": GPIO.HIGH, "name": "PUSHBUTTON"},
+        22: {"mode": GPIO.OUT, "initial": GPIO.LOW, "name": "RST"},
+        24: {"mode": GPIO.IN, "initial": GPIO.LOW, "name": "LED"},
+    }
+
+    gpio = RPiGPIO(config)
+    gpio.initialize()
+
+    assert getattr(rpi_peripherals, "PUSHBUTTON") == "PUSHBUTTON"
+    assert getattr(rpi_peripherals, "RST") == "RST"
+    assert getattr(rpi_peripherals, "high") == "HIGH"
+    assert getattr(rpi_peripherals, "low") == "LOW"
+
+    gpio.write(rpi_peripherals.RST, rpi_peripherals.low)
+    gpio.write("LED", rpi_peripherals.HIGH)
+    gpio.write(rpi_peripherals.PUSHBUTTON, "high")
 
 
 # ==== PWM Tests ====
@@ -175,8 +215,10 @@ def test_i2c_required_resources():
     assert i2c1.get_required_resources() == {"pins": [2, 3], "ports": ["/dev/i2c-1"]}
 
 def test_i2c_invalid_bus():
-    with pytest.raises(ValueError):
-        RPiI2C(bus_number=2)
+    # invalid/unsupported bus is treated as USB/virtual adapter
+    i2c = RPiI2C(bus_number=2)
+    assert i2c.get_required_resources() == {"ports": ["/dev/i2c-2"]}
+
 
 
 # ==== SPI Tests ====
@@ -192,55 +234,18 @@ def test_spi_transfer():
 
 def test_spi_required_resources():
     spi = RPiSPI(bus=1, device=2)
-    assert spi.get_required_resources() == {"ports": ["/dev/spidev1.2"]}
 
+    expected = {
+        "pins": [
+            20,  # MOSI1
+            19,  # MISO1
+            21,  # SCLK1
+            16,  # CE2
+        ],
+        "ports": ["/dev/spidev1.2"],
+    }
 
-# # ==== 1-Wire Tests ====
-
-# def test_1wire_temperature_and_list():
-#     one = RPi1Wire(pin=4)
-#     one.initialize()
-#     ids = one.list_devices()
-#     assert '28-0001' in ids
-#     m = mock_open(read_data="YES\n... t=23000")
-#     with patch('builtins.open', m):
-#         assert one.read_temperature('28-0001') == 23.0
-
-# def test_1wire_required_resources():
-#     one = RPi1Wire(pin=7)
-#     assert one.get_required_resources() == {"pins": [7]}
-
-
-# # ==== ADC Tests ====
-
-# def test_adc_invalid_channel():
-#     with pytest.raises(ValueError):
-#         RPiADC(channel=9)
-
-# def test_adc_read_all_and_single():
-#     adc = RPiADC(channel=0)
-#     adc.initialize()
-#     val = adc.read()
-#     assert isinstance(val, int)
-#     all_vals = adc.read_all_channels()
-#     assert len(all_vals) == 8
-
-# def test_adc_required_resources():
-#     adc = RPiADC(channel=3)
-#     assert adc.get_required_resources() == {"pins": [7, 8, 9, 10, 11]}
-
-
-# # ==== CAN Tests ====
-
-# def test_can_send_receive():
-#     canif = RPiCAN(interface='can0')
-#     canif.initialize()
-#     canif.send_message(0x123, [1,2,3])
-#     assert canif.receive_message() is not None
-
-# def test_can_required_resources():
-#     canif = RPiCAN(interface='can2', bitrate=250000)
-#     assert canif.get_required_resources() == {"pins": [], "interfaces": ["can2"]}
+    assert spi.get_required_resources() == expected
 
 
 # ==== Hardware PWM Tests ====
@@ -255,3 +260,64 @@ def test_hardware_pwm():
 def test_hardware_pwm_required_resources():
     hw = RPiHardwarePWM(pin=18)
     assert hw.get_required_resources() == {"pins": [18]}
+
+# ============================================================
+# 1-WIRE TESTS (NEW)
+# ============================================================
+
+def test_onewire_init_and_scan(monkeypatch):
+    # Mock glob.glob to return 2 fake sensors
+    monkeypatch.setattr(
+        glob, "glob",
+        lambda pattern: [
+            "/sys/bus/w1/devices/28-000111111111",
+            "/sys/bus/w1/devices/28-000222222222",
+        ] if "28-" in pattern else []
+    )
+
+    onewire = RPiOneWire(pin=4)
+    onewire.initialize()
+
+    devs = onewire.scan_devices()
+    assert devs == [
+        "28-000111111111",
+        "28-000222222222"
+    ]
+
+
+def test_onewire_no_devices(monkeypatch):
+    monkeypatch.setattr(glob, "glob", lambda pattern: [])
+
+    onewire = RPiOneWire(pin=4)
+    onewire.initialize()
+
+    devs = onewire.scan_devices()
+    assert devs == []
+
+
+def test_onewire_read_temperature(monkeypatch):
+    # 1-wire device directory exists
+    monkeypatch.setattr(
+        glob, "glob",
+        lambda pattern: ["/sys/bus/w1/devices/28-0001"] if "28-" in pattern else []
+    )
+
+    # Mock file read of w1_slave
+    file_content = (
+        "aa bb cc dd ee ff gg hh ii\n"
+        "t=21562\n"   # 21.562°C
+    )
+
+    m = mock_open(read_data=file_content)
+    monkeypatch.setattr("builtins.open", m)
+
+    onewire = RPiOneWire(pin=4)
+    onewire.initialize()
+
+    temp = onewire.read_temperature("28-0001")
+    assert temp == 21.562
+
+
+def test_onewire_required_resources():
+    ow = RPiOneWire(pin=4)
+    assert ow.get_required_resources() == {"pins": [4]}

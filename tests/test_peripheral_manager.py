@@ -31,7 +31,9 @@ class MockDevice:
 
     def get_initialized_params(self):
         """Return simulated initialized params."""
-        return {"port": self._ports[0] if self._ports else "none"}
+        if self._ports:
+            return {"port": self._ports[0]}
+        return {}
 
     def initialize(self):
         """Simulate initialization with optional failure."""
@@ -46,11 +48,9 @@ class MockDevice:
         self.released = True
 
     def enable_logging(self):
-        """Enable logging for this device."""
         self.logging_enabled = True
 
     def disable_logging(self):
-        """Disable logging for this device."""
         self.logging_enabled = False
 
 
@@ -67,7 +67,6 @@ def mock_logger():
 # -------------------------------------------------------------------------
 
 def test_successful_initialization_and_release(mock_logger):
-    """All devices initialize and release successfully."""
     d1 = MockDevice("P1", pins=[1], ports=["/dev/tty1"])
     d2 = MockDevice("X1", pins=[2], ports=["/dev/tty2"])
     devices = {"protocols": [d1], "peripherals": [d2]}
@@ -75,14 +74,17 @@ def test_successful_initialization_and_release(mock_logger):
 
     manager.initialize_all()
 
+    assert d1.initialized
+    assert d2.initialized
     assert len(manager.initialized_devices) == 2
-    assert d1.initialized and d2.initialized
 
-    # The logger uses the class name "MockDevice"
+    # check initialization log
     mock_logger.log.assert_any_call("[INFO] MockDevice initialized successfully.", to_console=True)
 
     manager.release_all()
-    assert d1.released and d2.released
+
+    assert d1.released
+    assert d2.released
     assert not manager.gpio_registry
     assert not manager.port_registry
 
@@ -92,7 +94,6 @@ def test_successful_initialization_and_release(mock_logger):
 # -------------------------------------------------------------------------
 
 def test_pin_conflict_raises(mock_logger):
-    """Detects conflict on same GPIO pin."""
     d1 = MockDevice("A", pins=[5])
     d2 = MockDevice("B", pins=[5])
     devices = {"protocols": [d1, d2]}
@@ -103,7 +104,6 @@ def test_pin_conflict_raises(mock_logger):
 
 
 def test_port_conflict_raises(mock_logger):
-    """Detects conflict on same port."""
     d1 = MockDevice("A", ports=["/dev/ttyX"])
     d2 = MockDevice("B", ports=["/dev/ttyX"])
     devices = {"protocols": [d1, d2]}
@@ -118,7 +118,6 @@ def test_port_conflict_raises(mock_logger):
 # -------------------------------------------------------------------------
 
 def test_optional_device_does_not_abort(mock_logger):
-    """Optional device logs warning but does not stop initialization."""
     d1 = MockDevice("Critical", pins=[1])
     d2 = MockDevice("OptionalFail", pins=[2], optional=True, fail=True)
     devices = {"protocols": [d1, d2]}
@@ -129,14 +128,12 @@ def test_optional_device_does_not_abort(mock_logger):
     assert d1.initialized
     assert not d2.initialized
 
-    # Expect class name "MockDevice" in logs
     mock_logger.log.assert_any_call(
         "[WARNING] Nie zainicjalizowano MockDevice: Init failed", to_console=True
     )
 
 
 def test_unexpected_error_triggers_rollback(mock_logger):
-    """Unexpected exception triggers PeripheralInitializationError and rollback."""
     d1 = MockDevice("Good", pins=[1])
     d2 = MockDevice("Bad", pins=[2], unexpected=True)
     devices = {"protocols": [d1, d2]}
@@ -145,12 +142,10 @@ def test_unexpected_error_triggers_rollback(mock_logger):
     with pytest.raises(PeripheralInitializationError):
         manager.initialize_all()
 
-    # Ensure cleanup executed
     mock_logger.log.assert_any_call("[INFO] All resources released.", to_console=True)
 
 
 def test_runtime_error_triggers_rollback(mock_logger):
-    """RuntimeError from a non-optional device triggers rollback."""
     d1 = MockDevice("Critical", pins=[1], fail=True)
     devices = {"protocols": [d1]}
     manager = PeripheralManager(devices, logger=mock_logger)
@@ -166,7 +161,6 @@ def test_runtime_error_triggers_rollback(mock_logger):
 # -------------------------------------------------------------------------
 
 def test_disable_enable_logging_calls(mock_logger):
-    """Enable/disable logging toggles device state."""
     d1 = MockDevice("LogDev")
     devices = {"protocols": [d1]}
     manager = PeripheralManager(devices, logger=mock_logger)
@@ -183,18 +177,18 @@ def test_disable_enable_logging_calls(mock_logger):
 # -------------------------------------------------------------------------
 
 def test_get_device_found(mock_logger):
-    """Successfully retrieves a device by class name."""
     d1 = MockDevice("GetMe")
     devices = {"protocols": [d1]}
     manager = PeripheralManager(devices, logger=mock_logger)
+
     result = manager.get_device("protocols", "MockDevice")
     assert result is d1
 
 
 def test_get_device_not_found_raises(mock_logger):
-    """Raises ValueError when device not found."""
     devices = {"protocols": []}
     manager = PeripheralManager(devices, logger=mock_logger)
+
     with pytest.raises(ValueError):
         manager.get_device("protocols", "NotExist")
 
@@ -204,15 +198,17 @@ def test_get_device_not_found_raises(mock_logger):
 # -------------------------------------------------------------------------
 
 def test_release_all_clears_registries(mock_logger):
-    """Ensures release_all cleans all registries and calls release()."""
     d1 = MockDevice("D", pins=[3], ports=["/dev/ttyD"])
     devices = {"protocols": [d1]}
     manager = PeripheralManager(devices, logger=mock_logger)
 
     manager.initialize_all()
-    assert manager.gpio_registry and manager.port_registry
+
+    assert manager.gpio_registry
+    assert manager.port_registry
 
     manager.release_all()
+
     assert not manager.gpio_registry
     assert not manager.port_registry
     assert d1.released
@@ -223,7 +219,6 @@ def test_release_all_clears_registries(mock_logger):
 # -------------------------------------------------------------------------
 
 def test_device_without_get_required_resources(mock_logger):
-    """Device missing get_required_resources() initializes gracefully."""
     class MinimalDevice:
         def initialize(self):
             self.initialized = True
@@ -233,12 +228,14 @@ def test_device_without_get_required_resources(mock_logger):
     d = MinimalDevice()
     devices = {"protocols": [d]}
     manager = PeripheralManager(devices, logger=mock_logger)
+
     manager.initialize_all()
     assert d.initialized
+
     manager.release_all()
+    assert d.released
 
 
 def test_assert_devices_type(mock_logger):
-    """Ensure constructor validates devices argument type."""
     with pytest.raises(AssertionError):
         PeripheralManager([], logger=mock_logger)

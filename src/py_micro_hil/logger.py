@@ -23,13 +23,20 @@ class Logger:
         "ERROR": "red",
         "INFO": "blue",
         "WARNING": "yellow",
+        "DEBUG": "cyan",   # ← DODANE
     }
 
-    def __init__(self, log_file: Optional[str] = None, html_file: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        log_file: Optional[str] = None,
+        html_file: Optional[str] = None,
+        debug_enabled: bool = False,
+    ) -> None:
         """
         Initializes the logger instance.
         :param log_file: Optional path to a log file.
         :param html_file: Optional path to an HTML report file.
+        :param debug_enabled: Controls whether `[DEBUG]` messages are emitted.
         """
         self.log_file = log_file
         self.html_file = html_file
@@ -37,6 +44,7 @@ class Logger:
         self._file_initialized: bool = False
         self.log_entries: List[Dict[str, Any]] = []
         self.last_message: Optional[str] = None
+        self.debug_enabled = debug_enabled
         self.report_generator: Optional[ReportGenerator] = (
             ReportGenerator(self) if html_file else None
         )
@@ -63,6 +71,9 @@ class Logger:
         :param html_log: If True, stores the message for HTML report generation.
         """
         self.last_message = message
+
+        if not self.debug_enabled and "[DEBUG]" in message:
+            return
 
         if to_console:
             self._log_to_console(message)
@@ -132,7 +143,7 @@ class Logger:
         :param message: The message to print.
         """
         message_with_color = re.sub(
-            r"\[(PASS|FAIL|INFO|WARNING|ERROR)\]",
+            r"\[(PASS|FAIL|INFO|WARNING|ERROR|DEBUG)\]",
             lambda m: "[" + colored(m.group(1), self.COLORS.get(m.group(1), "white")) + "]",
             message,
         )
@@ -174,7 +185,7 @@ class Logger:
         :param message: The message string.
         :return: The log level (e.g., 'INFO', 'FAIL').
         """
-        match = re.search(r"\[(PASS|FAIL|INFO|WARNING|ERROR)\]", message, re.IGNORECASE)
+        match = re.search(r"\[(PASS|FAIL|INFO|WARNING|ERROR|DEBUG)\]", message, re.IGNORECASE)
         return match.group(1).upper() if match else "INFO"
 
     # -------------------------------------------------------------------------

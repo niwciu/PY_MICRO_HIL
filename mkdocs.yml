@@ -1,0 +1,87 @@
+site_name: Py-Micro-HIL
+site_description: Modular, lightweight Hardware-in-the-Loop testing framework for Python
+site_url: https://niwciu.github.io/PY_MICRO_HIL
+repo_url: https://github.com/niwciu/PY_MICRO_HIL
+site_author: niwciu
+
+theme:
+  name: material
+  language: en
+  logo: assets/logo.png
+  favicon: assets/logo.png
+  features:
+    - navigation.instant
+    - navigation.top
+    - navigation.sections
+    - navigation.expand
+    - navigation.footer
+    - content.code.copy
+    # - content.action.edit
+    - content.tabs.link
+    - content.tooltips
+    - content.code.annotate
+    - header.autohide
+    - footer.social
+  palette:
+    #dark theme
+    - scheme: slate  
+      toggle:
+        icon: material/weather-sunny
+        name: Dark mode
+      # primary: green
+      accent: deep purple
+    #light theme
+    - scheme: default  
+      toggle:
+        icon: material/weather-night
+        name: Light mode
+      primary: blue
+      accent: deep orange
+
+markdown_extensions:
+  - attr_list
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - admonition
+  - pymdownx.details
+  - toc:
+      permalink: true
+      toc_depth: 2
+  - tables
+  - pymdownx.highlight
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Hardware Configuration: hardware-configuration.md
+  - Writing Tests: writing-tests.md
+  - Test API Reference: test-api-reference.md
+  - Running Tests & CLI: running-tests.md
+  - Reports & Artifacts: reports-and-artifacts.md
+  - System Architecture & Extensibility: architecture.md
+  - Developer Guide: developer-guide.md
+  - FAQ: faq.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/niwciu/PY_MICRO_HIL
+    - icon: fontawesome/solid/envelope
+      link: mailto:niwciu@gmail.com
+    - icon: simple/youtube
+      link: https://www.youtube.com/@MyEmbeddedWay/videos
+plugins:
+  - search
+copyright: Copyright &copy; 2025 niwciu

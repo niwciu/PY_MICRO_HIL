@@ -255,3 +255,32 @@ def test_create_group_with_unknown_source(monkeypatch):
     assert group.test_file == "(unknown source)"
     assert group.name == "module"
     assert isinstance(group, TestGroup)
+
+
+def test_tests_keep_definition_order(tmp_path):
+    """Testy powinny być rejestrowane w kolejności definicji w module."""
+
+    code = """
+def test_first():
+    pass
+
+
+def test_second():
+    pass
+
+
+def test_third():
+    pass
+"""
+    path = tmp_path / "ordered_mod.py"
+    path.write_text(code)
+
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("ordered_mod", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    group = create_test_group_from_module(mod)
+
+    assert [t.name for t in group.tests] == ["test_first", "test_second", "test_third"]

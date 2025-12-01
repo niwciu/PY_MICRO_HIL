@@ -74,13 +74,10 @@ def add_tests_from_module(group: TestGroup, module: ModuleType, group_name: str)
     :param module: The module to inspect for test functions.
     :param group_name: The logical name of the test group.
     """
-    for attr_name in dir(module):
-        if attr_name.startswith("test_"):
-            test_func = getattr(module, attr_name)
-            # Only add if it’s a callable test function (skip variables, classes, etc.)
-            if callable(test_func):
-                wrapped = make_wrapped_test(test_func, attr_name, group_name)
-                group.add_test(Test(attr_name, wrapped, test_func))
+    for attr_name, test_func in module.__dict__.items():
+        if attr_name.startswith("test_") and callable(test_func):
+            wrapped = make_wrapped_test(test_func, attr_name, group_name)
+            group.add_test(Test(attr_name, wrapped, test_func))
 
 
 def create_test_group_from_module(module: ModuleType) -> TestGroup:

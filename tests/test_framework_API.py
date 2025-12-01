@@ -68,12 +68,5 @@ def test_get_RPiSPI_peripheral(set_framework_context):
 def test_get_RPiHardwarePWM_peripheral(set_framework_context):
     assert framework_API.get_RPiHardwarePWM_peripheral() == "peripherals:RPiHardwarePWM"
 
-# TODO: enable when future peripherals are implemented
-# def test_get_RPiCAN_peripheral(set_framework_context):
-#     assert framework_API.get_RPiCAN_peripheral() == "peripherals:RPiCAN"
-#
-# def test_get_RPiADC_peripheral(set_framework_context):
-#     assert framework_API.get_RPiADC_peripheral() == "peripherals:RPiADC"
-#
-# def test_get_RPi1Wire_peripheral(set_framework_context):
-#     assert framework_API.get_RPi1Wire_peripheral() == "peripherals:RPi1Wire"
+def test_get_RPi1Wire_peripheral(set_framework_context):
+    assert framework_API.get_RPiOneWire_peripheral() == "peripherals:RPiOneWire"

@@ -1,6 +1,7 @@
 import sys
 import types
 import importlib.util
+import importlib.metadata
 from pathlib import Path
 import pytest
 
@@ -42,6 +43,7 @@ def test_parse_args_basic(monkeypatch):
     assert args.log == "mylog.txt"
     assert args.config.endswith("conf.yaml")
     assert args.html.endswith("report.html")
+    assert args.strict_imports is False
 
 
 def test_parse_args_no_html(monkeypatch):
@@ -49,6 +51,7 @@ def test_parse_args_no_html(monkeypatch):
     monkeypatch.setattr(sys, "argv", argv)
     args = cli.parse_args()
     assert args.html is None
+    assert args.strict_imports is False
 
 
 def test_parse_args_html_directory(monkeypatch, tmp_path):
@@ -60,12 +63,97 @@ def test_parse_args_html_directory(monkeypatch, tmp_path):
 
 
 # ---------------------------------------------------------------------
+# get_project_version
+# ---------------------------------------------------------------------
+
+
+def test_get_project_version_reads_pyproject(monkeypatch):
+    def raise_not_found(*args, **kwargs):
+        raise importlib.metadata.PackageNotFoundError()
+
+    monkeypatch.setattr(importlib.metadata, "version", raise_not_found)
+    version = cli.get_project_version()
+    assert version == "0.1.3"
+
+
+# ---------------------------------------------------------------------
+# create_test_group_file
+# ---------------------------------------------------------------------
+
+
+def test_create_test_group_file_success(tmp_path, monkeypatch):
+    template = tmp_path / "template.py"
+    template.write_text("# template\nclass {test_group_name}: pass\n")
+    target_dir = tmp_path / "hil_tests"
+    target_dir.mkdir()
+
+    monkeypatch.setattr(cli, "get_template_path", lambda: template)
+    logger = DummyLogger()
+
+    created = cli.create_test_group_file("alpha", target_dir, logger)
+
+    assert created is True
+    output_file = target_dir / "test_alpha.py"
+    assert output_file.exists()
+    assert "class alpha" in output_file.read_text()
+    assert any("Created test group template" in msg for msg in logger.messages)
+
+
+def test_create_test_group_file_existing(tmp_path, monkeypatch):
+    template = tmp_path / "template.py"
+    template.write_text("# template\nclass {test_group_name}: pass\n")
+    target_dir = tmp_path / "hil_tests"
+    target_dir.mkdir()
+    existing = target_dir / "test_alpha.py"
+    existing.write_text("# existing")
+
+    monkeypatch.setattr(cli, "get_template_path", lambda: template)
+    logger = DummyLogger()
+
+    created = cli.create_test_group_file("alpha", target_dir, logger)
+
+    assert created is False
+    assert any("already exists" in msg for msg in logger.messages)
+
+
+def test_create_test_group_file_missing_dir(tmp_path, monkeypatch):
+    template = tmp_path / "template.py"
+    template.write_text("# template\nclass {test_group_name}: pass\n")
+    target_dir = tmp_path / "missing"
+
+    monkeypatch.setattr(cli, "get_template_path", lambda: template)
+    logger = DummyLogger()
+
+    created = cli.create_test_group_file("alpha", target_dir, logger)
+
+    assert created is False
+    assert any("does not exist" in msg for msg in logger.messages)
+
+
+# ---------------------------------------------------------------------
+# log_discovered_devices
+# ---------------------------------------------------------------------
+
+
+def test_log_discovered_devices_reports_attributes():
+    logger = DummyLogger()
+    devices = {"GPIO": [types.SimpleNamespace(pin=4)], "UART": []}
+
+    cli.log_discovered_devices(devices, logger)
+
+    assert "[DEBUG] Discovered peripherals:" in logger.messages[0]
+    assert any("GPIO" in msg for msg in logger.messages)
+    assert any("pin: 4" in msg for msg in logger.messages)
+
+
+# ---------------------------------------------------------------------
 # load_test_groups
 # ---------------------------------------------------------------------
 
 class DummyLogger:
     def __init__(self):
         self.messages = []
+
     def log(self, msg, **kwargs):
         self.messages.append(msg)
 
@@ -106,6 +194,30 @@ def test_load_test_groups_with_exception(tmp_path, monkeypatch):
     assert any("Skipping" in msg for msg in logger.messages)
 
 
+def test_load_test_groups_strict_mode_raises(tmp_path, monkeypatch):
+    file = tmp_path / "test_fail.py"
+    file.write_text("raise SyntaxError")
+
+    def fake_exec_module(module):
+        raise RuntimeError("boom")
+
+    def fake_create_module(spec):
+        return types.ModuleType("mod")
+
+    spec = importlib.util.spec_from_file_location("mod", file)
+    spec.loader = types.SimpleNamespace(
+        exec_module=fake_exec_module,
+        create_module=fake_create_module
+    )
+
+    monkeypatch.setattr(importlib.util, "spec_from_file_location", lambda n, p: spec)
+
+    logger = DummyLogger()
+    monkeypatch.setattr(cli, "create_test_group_from_module", lambda m: None)
+    with pytest.raises(RuntimeError):
+        cli.load_test_groups(tmp_path, logger, strict_imports=True)
+
+
 # ---------------------------------------------------------------------
 # main()
 # ---------------------------------------------------------------------
@@ -113,6 +225,12 @@ def test_load_test_groups_with_exception(tmp_path, monkeypatch):
 @pytest.fixture
 def dummy_environment(tmp_path, monkeypatch):
     """Setup fake environment for main()."""
+
+    class DummyPeripheral:
+        def __init__(self, name="device", channel=1):
+            self.name = name
+            self.channel = channel
+
     class DummyLogger:
         def __init__(self, *a, **kw):
             self.logged = []
@@ -123,7 +241,7 @@ def dummy_environment(tmp_path, monkeypatch):
 
     class DummyPeripheralManager:
         def __init__(self, **kw):
-            self.devices = {"OK": True}
+            self.devices = {"GPIO": [DummyPeripheral()], "Empty": []}
 
     class DummyTestFramework:
         def __init__(self, pm, logger):
@@ -137,9 +255,17 @@ def dummy_environment(tmp_path, monkeypatch):
 
     monkeypatch.setattr(cli, "Logger", DummyLogger)
     monkeypatch.setattr(cli, "PeripheralManager", DummyPeripheralManager)
-    monkeypatch.setattr(cli, "load_peripheral_configuration", lambda yaml_file, logger: {"dev": 1})
+    monkeypatch.setattr(
+        cli,
+        "load_peripheral_configuration",
+        lambda yaml_file, logger: {"GPIO": [DummyPeripheral("pin4")], "UART": []},
+    )
     monkeypatch.setattr(cli, "TestFramework", DummyTestFramework)
-    monkeypatch.setattr(cli, "load_test_groups", lambda td, lg: [types.SimpleNamespace(name="TG1")])
+    monkeypatch.setattr(
+        cli,
+        "load_test_groups",
+        lambda td, lg, strict_imports=False: [types.SimpleNamespace(name="TG1")],
+    )
     monkeypatch.chdir(tmp_path)
     return tmp_path
 
@@ -183,7 +309,11 @@ def test_main_missing_test_dir(monkeypatch, dummy_environment, tmp_path):
 def test_main_list_tests(monkeypatch, dummy_environment, tmp_path):
     test_dir = tmp_path / "hil_tests"
     test_dir.mkdir()
-    monkeypatch.setattr(cli, "load_test_groups", lambda td, lg: [types.SimpleNamespace(name="TG1")])
+    monkeypatch.setattr(
+        cli,
+        "load_test_groups",
+        lambda td, lg, strict_imports=False: [types.SimpleNamespace(name="TG1")],
+    )
     argv = ["--list-tests", "--test-dir", str(test_dir)]
     code = run_main(monkeypatch, argv)
     assert code == 0

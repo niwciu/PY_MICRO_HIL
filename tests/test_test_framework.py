@@ -7,6 +7,7 @@ from py_micro_hil.tests_framework import (
     Test,
     Peripheral
 )
+from py_micro_hil.assertions import TEST_ASSERT_EQUAL
 
 
 # ---------------------------------------------------------------------
@@ -241,21 +242,36 @@ def test_testgroup_with_no_tests_warns_in_log(framework, fake_logger):
 
 
 def test_testgroup_setup_exception_logged(framework, fake_logger):
-    def setup(fr): raise RuntimeError("boom")
+    def setup(fr):
+        raise RuntimeError("boom")
+
+    called = {"test": False}
+
+    def test_func(fr):
+        called["test"] = True
+
     grp = TestGroup("G")
     grp.set_setup(setup)
+    grp.add_test(Test("t1", test_func))
     grp.run_tests(framework)
     assert any("Setup for group" in e[0] for e in fake_logger.entries)
-    assert framework.fail_count > 0
+    assert any("Skipping tests for group" in e[0] for e in fake_logger.entries)
+    assert framework.fail_count == 1
+    assert framework.total_tests == 1
+    assert not called["test"]
 
 
 def test_testgroup_teardown_exception_logged(framework, fake_logger):
-    def teardown(fr): raise RuntimeError("boom")
+    def teardown(fr):
+        raise RuntimeError("boom")
+
     grp = TestGroup("G")
     grp.set_teardown(teardown)
     grp.run_tests(framework)
     assert any("Teardown for group" in e[0] for e in fake_logger.entries)
-    assert framework.fail_count > 0
+    assert framework.fail_count == 1
+    assert framework.total_tests == 1
+    assert fake_logger.log_entries[-1]["test_name"] == "teardown"
 
 
 def test_duplicate_group_names(framework):
@@ -283,6 +299,21 @@ def test_test_run_pass_and_fail(framework, fake_logger):
     logs = [m[0] for m in fake_logger.entries]
     assert any("[PASS]" in l for l in logs)
     assert any("[FAIL]" in l for l in logs)
+
+
+def test_single_result_when_using_assertions(framework, fake_logger):
+    def test_body(fr):
+        TEST_ASSERT_EQUAL(1, 1, {"framework": fr, "group_name": "G", "test_name": "t1"})
+
+    test = Test("t1", test_body)
+    group = TestGroup("G")
+    group.add_test(test)
+
+    group.run_tests(framework)
+
+    pass_logs = [msg for msg, *_ in fake_logger.entries if "[PASS]" in msg]
+    assert len(pass_logs) == 1
+    assert framework.total_tests == 1
 
 
 # ---------------------------------------------------------------------

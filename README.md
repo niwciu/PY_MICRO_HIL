@@ -117,13 +117,19 @@ def test_led_toggle():
 ### 3️⃣ Run the tests
 Before running tests check available options by typing:
 ```bash
-hilltest --help
+hiltests --help
 ```
 
 Use the built-in **CLI runner**:
 
 ```bash
-hiltests --config ./peripherals_config.yaml --tests ./hil_tests
+hiltests --config ./peripherals_config.yaml --test-dir ./hil_tests
+```
+
+Generate a starter group from the editable template without executing any tests:
+
+```bash
+hiltests --create-test-group gpio_smoke ./hil_tests
 ```
 
 If both the YAML configuration and the `hil_tests` folder are in the same directory,  
@@ -178,6 +184,7 @@ See: [Reports and Logging →](https://niwciu.github.io/PY_MICRO_HIL/reports/)
 | **UART** | `RPiUART` | Serial communication via `pyserial` |
 | **I²C** | `RPiI2C` | SMBus-compatible interface |
 | **SPI** | `RPiSPI` | SPI interface via `spidev` |
+| **1-Wire** | `RPiOneWire` | DS18B20 temperature sensors via w1-gpio |
 | **Modbus RTU** | `ModbusRTU` | RS-485 communication via `pymodbus` |
 
 > 🧩 These are the currently implemented peripherals.  

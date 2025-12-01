@@ -14,12 +14,13 @@ authors = [
 ]
 dependencies = [
     "pyserial",
-    "yaml",
+    "PyYAML",
     "RPi.GPIO",
     "spidev",
     "pymodbus",
     "smbus2",
-    "jinja2"
+    "jinja2",
+    "termcolor"
 ]
 
 [project.optional-dependencies]

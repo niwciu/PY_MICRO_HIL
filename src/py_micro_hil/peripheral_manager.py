@@ -129,7 +129,7 @@ class PeripheralManager:
         :raises PeripheralInitializationError: If a critical device fails to initialize.
         """
         for group, devices in self.devices.items():
-            self.logger.log(f"\nInitializing {group}...", to_console=True)
+            self.logger.log(f"\n[INFO] Initializing {group}...", to_console=True)
 
             for device in devices:
                 device_name = type(device).__name__
@@ -173,7 +173,7 @@ class PeripheralManager:
                     raise PeripheralInitializationError(str(e))
 
             # After all devices in this group
-            self.logger.log(f"All {group} initialized.", to_console=True)
+            self.logger.log(f"[INFO] All {group} initialized.", to_console=True)
 
     def release_all(self) -> None:
         """

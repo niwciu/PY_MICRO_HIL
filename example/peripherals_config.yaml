@@ -12,8 +12,10 @@ peripherals:
     - pin: 17
       mode: out
       initial: low
+      name: LED_RED
     - pin: 18
       mode: in
+      name: PUSHBUTTON
 
   # --- Software PWM (via RPiGPIO.PWM) ---
   pwm:
@@ -45,15 +47,6 @@ peripherals:
     cs_high: false
     lsbfirst: false
     timeout: 1
-
-  # # --- ADC (np. MCP3008) via SPI ---
-  # adc:
-  #   channel: 0
-
-  # # --- CAN (SocketCAN) ---
-  # can:
-  #   interface: can0
-  #   bitrate: 500000
 
   # # --- 1-Wire (DS18B20 itp.) ---
   # one_wire:

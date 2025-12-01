@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from py_micro_hil.peripherals.modbus import ModbusRTU
+from py_micro_hil.peripherals.protocols import ModbusRTU
 
 
 @pytest.fixture
@@ -11,7 +11,7 @@ def modbus_rtu():
 # === Initialization / Release ===
 
 def test_initialization_and_release():
-    with patch("py_micro_hil.peripherals.modbus.ModbusClient") as mock_client_class:
+    with patch("py_micro_hil.peripherals.protocols.ModbusClient") as mock_client_class:
         mock_client = mock_client_class.return_value
         mock_client.connect.return_value = True
 
@@ -35,7 +35,7 @@ def test_initialization_and_release():
 
 
 def test_initialize_connection_failure():
-    with patch("py_micro_hil.peripherals.modbus.ModbusClient") as mock_client_class:
+    with patch("py_micro_hil.peripherals.protocols.ModbusClient") as mock_client_class:
         mock_instance = mock_client_class.return_value
         mock_instance.connect.return_value = False
         modbus = ModbusRTU()
