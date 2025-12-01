@@ -9,7 +9,7 @@ if TYPE_CHECKING:
         RPiI2C_API,
         RPiSPI_API,
         RPiHardwarePWM_API,
-        RPiOneWire_API,        # ← DODANE
+        RPiOneWire_API,  # ← DODANE
     )
     from py_micro_hil.peripherals.modbus import ModbusRTU_API
 

@@ -250,12 +250,13 @@ def load_test_groups(test_directory, logger, strict_imports: bool = False):
                         raise RuntimeError(f"Failed to import test module: {module_path}") from e
     return test_groups
 
+
 def log_discovered_devices(devices, logger):
     logger.log("[DEBUG] Discovered peripherals:")
 
     for category, items in devices.items():
         logger.log(f"\t{category}:")
-        
+
         if not items:
             logger.log("\t\t(none)")
             continue
@@ -297,7 +298,11 @@ def main():
             sys.exit(1)
 
         group_name = args.create_test_group[0]
-        target_dir = Path(args.create_test_group[1]) if len(args.create_test_group) > 1 else Path(args.test_dir)
+        target_dir = (
+            Path(args.create_test_group[1])
+            if len(args.create_test_group) > 1
+            else Path(args.test_dir)
+        )
 
         success = create_test_group_file(group_name, target_dir, logger)
         sys.exit(0 if success else 1)
@@ -326,7 +331,6 @@ def main():
 
     log_discovered_devices(peripheral_manager.devices, logger)
 
-
     # Initialize test framework
     test_framework = TestFramework(peripheral_manager, logger)
 
@@ -341,9 +345,7 @@ def main():
         sys.exit(1)
 
     try:
-        test_groups = load_test_groups(
-            test_directory, logger, strict_imports=args.strict_imports
-        )
+        test_groups = load_test_groups(test_directory, logger, strict_imports=args.strict_imports)
     except Exception as e:
         logger.log(
             f"[ERROR] ❌ Failed to load test modules: {e}",

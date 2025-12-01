@@ -158,9 +158,7 @@ class RPiGPIO(LoggingMixin, ResourceMixin, RPiGPIO_API):
                 return GPIO.HIGH
             if normalized == "low":
                 return GPIO.LOW
-            raise ValueError(
-                "GPIO value must be 'high'/'HIGH', 'low'/'LOW', 1, 0, True, or False"
-            )
+            raise ValueError("GPIO value must be 'high'/'HIGH', 'low'/'LOW', 1, 0, True, or False")
 
         if value in (GPIO.HIGH, GPIO.LOW):
             return value
@@ -171,18 +169,14 @@ class RPiGPIO(LoggingMixin, ResourceMixin, RPiGPIO_API):
         if isinstance(value, int) and value in (0, 1):
             return GPIO.HIGH if value else GPIO.LOW
 
-        raise ValueError(
-            "GPIO value must be 'high'/'HIGH', 'low'/'LOW', 1, 0, True, or False"
-        )
+        raise ValueError("GPIO value must be 'high'/'HIGH', 'low'/'LOW', 1, 0, True, or False")
 
     def write(self, pin: Union[int, str], value: Union[int, str, bool]) -> None:
         """Set digital output value on a pin."""
         resolved_pin = self._resolve_pin(pin)
         normalized_value = self._normalize_value(value)
         GPIO.output(resolved_pin, normalized_value)
-        self._log(
-            f"[DEBUG] Wrote value {normalized_value} to pin {resolved_pin}"
-        )
+        self._log(f"[DEBUG] Wrote value {normalized_value} to pin {resolved_pin}")
 
     def read(self, pin: Union[int, str]) -> int:
         """Read digital input value from a pin."""
@@ -318,13 +312,13 @@ class RPiUART_API(ABC):
 
 # Mapping hardware UART ports to their corresponding GPIO pins
 UART_PIN_MAP = {
-    "/dev/ttyAMA0": [14, 15],   # uart0 (PL011)
-    "/dev/ttyS0":   [14, 15],   # uart1 (mini UART)
-    "/dev/ttyAMA1": [0, 1],     # uart2 (PL011)
-    "/dev/ttyAMA2": [4, 5],     # uart3 (PL011)
-    "/dev/ttyAMA3": [8, 9],     # uart4 (PL011)
-    "/dev/ttyAMA4": [12, 13],   # uart5 (PL011)
-    "/dev/serial0": [14, 15],   # system alias (mapped dynamically)
+    "/dev/ttyAMA0": [14, 15],  # uart0 (PL011)
+    "/dev/ttyS0": [14, 15],  # uart1 (mini UART)
+    "/dev/ttyAMA1": [0, 1],  # uart2 (PL011)
+    "/dev/ttyAMA2": [4, 5],  # uart3 (PL011)
+    "/dev/ttyAMA3": [8, 9],  # uart4 (PL011)
+    "/dev/ttyAMA4": [12, 13],  # uart5 (PL011)
+    "/dev/serial0": [14, 15],  # system alias (mapped dynamically)
 }
 
 
@@ -465,12 +459,12 @@ class RPiI2C_API(ABC):
 
 # Mapping I2C buses to their corresponding GPIO pins (BCM numbering)
 I2C_PIN_MAP = {
-    0: [0, 1],       # SDA0, SCL0 (BSC0) - requires overlay: i2c0
-    1: [2, 3],       # SDA1, SCL1 (BSC1) - enabled by raspi-config
-    3: [4, 5],       # BSC3 - requires overlay: i2c3
-    4: [6, 7],       # BSC4 - requires overlay: i2c4
-    5: [12, 13],     # BSC5 - requires overlay: i2c5
-    6: [22, 23],     # BSC6 - requires overlay: i2c6
+    0: [0, 1],  # SDA0, SCL0 (BSC0) - requires overlay: i2c0
+    1: [2, 3],  # SDA1, SCL1 (BSC1) - enabled by raspi-config
+    3: [4, 5],  # BSC3 - requires overlay: i2c3
+    4: [6, 7],  # BSC4 - requires overlay: i2c4
+    5: [12, 13],  # BSC5 - requires overlay: i2c5
+    6: [22, 23],  # BSC6 - requires overlay: i2c6
 }
 
 
@@ -657,7 +651,7 @@ class RPiSPI(LoggingMixin, ResourceMixin, RPiSPI_API):
         logging_enabled: bool = True,
     ) -> None:
         super().__init__(logger, logging_enabled)
-        self.bus = bus      # SPI bus number (0,1,2)
+        self.bus = bus  # SPI bus number (0,1,2)
         self.device = device  # CE line (chip select)
         self.max_speed_hz = max_speed_hz
         self.mode = mode
@@ -924,6 +918,7 @@ class RPiOneWire(LoggingMixin, ResourceMixin, RPiOneWire_API):
     def release(self) -> None:
         # No cleanup required
         self._log("[INFO] 1-Wire released")
+
 
 GPIO_LABEL_CONSTANTS: Dict[str, str] = {}
 HIGH = "HIGH"

@@ -214,8 +214,7 @@ def load_peripheral_configuration(yaml_file=None, logger=None):
 
             # Zwykły konflikt np. GPIO/SPI/PWM/I2C z czymkolwiek
             log_or_raise(
-                f"GPIO {pin} is already used by '{consumer}' "
-                f"and cannot be used by {owner}."
+                f"GPIO {pin} is already used by '{consumer}' " f"and cannot be used by {owner}."
             )
             return False
 
@@ -346,9 +345,7 @@ def load_peripheral_configuration(yaml_file=None, logger=None):
             dev = f"/dev/i2c-{bus}"
 
             if not _dev_exists(dev):
-                log_or_raise(
-                    f"I2C bus {bus} is not enabled in system (missing {dev})."
-                )
+                log_or_raise(f"I2C bus {bus} is not enabled in system (missing {dev}).")
 
         # SPI
         if "spi" in peripherals_cfg and isinstance(peripherals_cfg["spi"], dict):
@@ -358,9 +355,7 @@ def load_peripheral_configuration(yaml_file=None, logger=None):
             dev = f"/dev/spidev{bus}.{device}"
 
             if not _dev_exists(dev):
-                log_or_raise(
-                    f"SPI {bus}.{device} is not enabled in system (missing {dev})."
-                )
+                log_or_raise(f"SPI {bus}.{device} is not enabled in system (missing {dev}).")
 
         # UART (tylko wewnętrzne)
         if "uart" in peripherals_cfg and isinstance(peripherals_cfg["uart"], dict):
@@ -368,9 +363,7 @@ def load_peripheral_configuration(yaml_file=None, logger=None):
             port = uart_cfg.get("port", "/dev/serial0")
 
             if port in VALID_UART_INTERNAL_PORTS and not _dev_exists(port):
-                log_or_raise(
-                    f"UART port {port} is not available in system (missing device)."
-                )
+                log_or_raise(f"UART port {port} is not available in system (missing device).")
 
     validate_system_state()  # również nie przerywamy
 
@@ -517,16 +510,12 @@ def load_peripheral_configuration(yaml_file=None, logger=None):
                 name = gpio_config.get("name")
                 if name is not None:
                     if not isinstance(name, str) or not name.strip():
-                        log_or_raise(
-                            f"Invalid GPIO name for pin {pin}: {name}", warning=True
-                        )
+                        log_or_raise(f"Invalid GPIO name for pin {pin}: {name}", warning=True)
                         name = None
                     else:
                         normalized_name = name.strip().lower()
                         if normalized_name in used_gpio_names:
-                            log_or_raise(
-                                f"Duplicate GPIO name detected: {name}", warning=True
-                            )
+                            log_or_raise(f"Duplicate GPIO name detected: {name}", warning=True)
                             name = None
                         else:
                             used_gpio_names.add(normalized_name)
@@ -538,25 +527,19 @@ def load_peripheral_configuration(yaml_file=None, logger=None):
                 mode = (
                     GPIO_mod.IN
                     if mode_str in ("IN", "GPIO.IN")
-                    else GPIO_mod.OUT
-                    if mode_str in ("OUT", "GPIO.OUT")
-                    else None
+                    else GPIO_mod.OUT if mode_str in ("OUT", "GPIO.OUT") else None
                 )
                 initial = (
                     GPIO_mod.LOW
                     if initial_str in ("LOW", "GPIO.LOW")
-                    else GPIO_mod.HIGH
-                    if initial_str in ("HIGH", "GPIO.HIGH")
-                    else None
+                    else GPIO_mod.HIGH if initial_str in ("HIGH", "GPIO.HIGH") else None
                 )
 
                 if mode is None:
                     log_or_raise(f"Invalid GPIO mode: {mode_str}", warning=True)
                     continue
                 if initial is None:
-                    log_or_raise(
-                        f"Invalid GPIO initial value: {initial_str}", warning=True
-                    )
+                    log_or_raise(f"Invalid GPIO initial value: {initial_str}", warning=True)
                     continue
 
                 if not check_gpio_conflicts("GPIO", [pin]):
@@ -757,9 +740,7 @@ def load_peripheral_configuration(yaml_file=None, logger=None):
                     log_or_raise(f"Invalid Hardware PWM pin: {pin}")
                     continue
                 if pin not in HARDWARE_PWM_PINS:
-                    log_or_raise(
-                        f"Pin {pin} does not support hardware PWM on Raspberry Pi."
-                    )
+                    log_or_raise(f"Pin {pin} does not support hardware PWM on Raspberry Pi.")
                     continue
                 if not isinstance(frequency, (int, float)) or frequency <= 0:
                     log_or_raise(f"Invalid Hardware PWM frequency: {frequency}")
@@ -825,9 +806,7 @@ def load_peripheral_configuration(yaml_file=None, logger=None):
                 to_log_file=False,
             )
         else:
-            print(
-                "[ERROR] ❌ Peripheral configuration contains one or more errors. Aborting."
-            )
+            print("[ERROR] ❌ Peripheral configuration contains one or more errors. Aborting.")
         return None
 
     return {

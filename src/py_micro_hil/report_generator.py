@@ -2,7 +2,7 @@ import os
 import re
 import shutil
 import inspect
-from jinja2 import Environment, FileSystemLoader, TemplateNotFound
+from jinja2 import Environment, FileSystemLoader
 
 
 class ReportGenerationError(RuntimeError):
@@ -211,7 +211,9 @@ class ReportGenerator:
                         continue
 
             if self.group_template:
-                rendered = self.group_template.render(group_name=group_name, tests=test_code_entries)
+                rendered = self.group_template.render(
+                    group_name=group_name, tests=test_code_entries
+                )
             else:
                 rendered = self._render_simple_group_page(group_name, test_code_entries)
             with open(group_file, "w", encoding="utf-8") as f:
@@ -231,7 +233,8 @@ class ReportGenerator:
                 f"<div class='group'><h2>{group['name']}</h2>"
                 + "".join(
                     f"<div class='test {t['status'].lower()}'><strong>{t['name']}</strong>"
-                    f" - {t['status']}: {t['details']}</div>" for t in group["tests"]
+                    f" - {t['status']}: {t['details']}</div>"
+                    for t in group["tests"]
                 )
                 + "</div>"
             )
@@ -247,6 +250,8 @@ class ReportGenerator:
     def _render_simple_group_page(self, group_name: str, tests: list[dict]) -> str:
         body = [f"<html><body><h2>{group_name}</h2>"]
         for test in tests:
-            body.append(f"<div id='{test['id']}'><h3>{test['test_name']}</h3><pre>{test['code']}</pre></div>")
+            body.append(
+                f"<div id='{test['id']}'><h3>{test['test_name']}</h3><pre>{test['code']}</pre></div>"
+            )
         body.append("</body></html>")
         return "".join(body)

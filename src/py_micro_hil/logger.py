@@ -23,7 +23,7 @@ class Logger:
         "ERROR": "red",
         "INFO": "blue",
         "WARNING": "yellow",
-        "DEBUG": "cyan",   # ← DODANE
+        "DEBUG": "cyan",  # ← DODANE
     }
 
     def __init__(
