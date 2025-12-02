@@ -252,25 +252,29 @@ def load_test_groups(test_directory, logger, strict_imports: bool = False):
 
 
 def log_discovered_devices(devices, logger):
-    logger.log("[DEBUG] Discovered peripherals:")
+    output = []
+    output.append("[DEBUG] Discovered peripherals:")
 
     for category, items in devices.items():
-        logger.log(f"\t{category}:")
+        output.append(f"\t{category}:")
 
         if not items:
-            logger.log("\t\t(none)")
+            output.append("\t\t(none)")
             continue
 
         for item in items:
-            logger.log(f"\t\t{item.__class__.__name__}:")
+            output.append(f"\t\t{item.__class__.__name__}:")
             attrs = item.__dict__
 
             if not attrs:
-                logger.log("\t\t\t(no attributes)")
+                output.append("\t\t\t(no attributes)")
                 continue
 
             for key, val in attrs.items():
-                logger.log(f"\t\t\t{key}: {val}")
+                output.append(f"\t\t\t{key}: {val}")
+
+    # jedno wywołanie logera
+    logger.log("\n".join(output))
 
 
 def main():
