@@ -126,7 +126,7 @@ class ModbusRTU(ModbusRTU_API):
     def read_holding_registers(self, slave_address, address, count):
         if not self.client:
             raise RuntimeError("Modbus client not initialized.")
-        response = self.client.read_holding_registers(address, count, slave=slave_address)
+        response = self.client.read_holding_registers(address=address, count=count, device_id=slave_address)
         if not response or response.isError():
             raise IOError(f"[Modbus] Error response received: {response}")
         return response.registers
@@ -134,7 +134,7 @@ class ModbusRTU(ModbusRTU_API):
     def write_single_register(self, slave_address, address, value):
         if not self.client:
             raise RuntimeError("Modbus client not initialized.")
-        response = self.client.write_register(address, value, slave=slave_address)
+        response = self.client.write_register(address=address, value=value, device_id=slave_address)
         if not response or response.isError():
             raise IOError(f"[Modbus] Error response received: {response}")
         return response
@@ -142,7 +142,7 @@ class ModbusRTU(ModbusRTU_API):
     def write_multiple_registers(self, slave_address, address, values):
         if not self.client:
             raise RuntimeError("Modbus client not initialized.")
-        response = self.client.write_registers(address, values, slave=slave_address)
+        response = self.client.write_registers(address=address, value=values, device_id=slave_address)
         if not response or response.isError():
             raise IOError(f"[Modbus] Error response received: {response}")
         return response
@@ -150,7 +150,7 @@ class ModbusRTU(ModbusRTU_API):
     def read_coils(self, slave_address, address, count):
         if not self.client:
             raise RuntimeError("Modbus client not initialized.")
-        response = self.client.read_coils(address, count, slave=slave_address)
+        response = self.client.read_coils(address=address, count=count, device_id=slave_address)
         if not response or response.isError():
             raise IOError(f"[Modbus] Error response received: {response}")
         return response.bits
@@ -158,7 +158,7 @@ class ModbusRTU(ModbusRTU_API):
     def read_discrete_inputs(self, slave_address, address, count):
         if not self.client:
             raise RuntimeError("Modbus client not initialized.")
-        response = self.client.read_discrete_inputs(address, count, slave=slave_address)
+        response = self.client.read_discrete_inputs(address=address, count=count, device_id=slave_address)
         if not response or response.isError():
             raise IOError(f"[Modbus] Error response received: {response}")
         return response.bits
@@ -166,7 +166,7 @@ class ModbusRTU(ModbusRTU_API):
     def read_input_registers(self, slave_address, address, count):
         if not self.client:
             raise RuntimeError("Modbus client not initialized.")
-        response = self.client.read_input_registers(address, count, slave=slave_address)
+        response = self.client.read_input_registers(address=address, count=count, device_id=slave_address)
         if not response or response.isError():
             raise IOError(f"[Modbus] Error response received: {response}")
         return response.registers
@@ -174,7 +174,7 @@ class ModbusRTU(ModbusRTU_API):
     def write_single_coil(self, slave_address, address, value):
         if not self.client:
             raise RuntimeError("Modbus client not initialized.")
-        response = self.client.write_coil(address, value, slave=slave_address)
+        response = self.client.write_coil(address=address, value=value, device_id=slave_address)
         if not response or response.isError():
             raise IOError(f"[Modbus] Error response received: {response}")
         return response
@@ -182,7 +182,7 @@ class ModbusRTU(ModbusRTU_API):
     def write_multiple_coils(self, slave_address, address, values):
         if not self.client:
             raise RuntimeError("Modbus client not initialized.")
-        response = self.client.write_coils(address, values, slave=slave_address)
+        response = self.client.write_coils(address=address, value=values, device_id=slave_address)
         if not response or response.isError():
             raise IOError(f"[Modbus] Error response received: {response}")
         return response
