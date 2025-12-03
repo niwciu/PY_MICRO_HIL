@@ -10,6 +10,7 @@ from py_micro_hil.peripheral_manager import (
 # MOCK CLASSES
 # -------------------------------------------------------------------------
 
+
 class MockDevice:
     """Mock device used to simulate peripherals or protocols."""
 
@@ -66,6 +67,7 @@ def mock_logger():
 # INITIALIZATION AND RELEASE
 # -------------------------------------------------------------------------
 
+
 def test_successful_initialization_and_release(mock_logger):
     d1 = MockDevice("P1", pins=[1], ports=["/dev/tty1"])
     d2 = MockDevice("X1", pins=[2], ports=["/dev/tty2"])
@@ -93,6 +95,7 @@ def test_successful_initialization_and_release(mock_logger):
 # RESOURCE CONFLICTS
 # -------------------------------------------------------------------------
 
+
 def test_pin_conflict_raises(mock_logger):
     d1 = MockDevice("A", pins=[5])
     d2 = MockDevice("B", pins=[5])
@@ -116,6 +119,7 @@ def test_port_conflict_raises(mock_logger):
 # -------------------------------------------------------------------------
 # OPTIONAL DEVICES AND FAILURES
 # -------------------------------------------------------------------------
+
 
 def test_optional_device_does_not_abort(mock_logger):
     d1 = MockDevice("Critical", pins=[1])
@@ -160,6 +164,7 @@ def test_runtime_error_triggers_rollback(mock_logger):
 # LOGGING CONTROL
 # -------------------------------------------------------------------------
 
+
 def test_disable_enable_logging_calls(mock_logger):
     d1 = MockDevice("LogDev")
     devices = {"protocols": [d1]}
@@ -175,6 +180,7 @@ def test_disable_enable_logging_calls(mock_logger):
 # -------------------------------------------------------------------------
 # DEVICE LOOKUP
 # -------------------------------------------------------------------------
+
 
 def test_get_device_found(mock_logger):
     d1 = MockDevice("GetMe")
@@ -197,6 +203,7 @@ def test_get_device_not_found_raises(mock_logger):
 # RELEASE AND CLEANUP
 # -------------------------------------------------------------------------
 
+
 def test_release_all_clears_registries(mock_logger):
     d1 = MockDevice("D", pins=[3], ports=["/dev/ttyD"])
     devices = {"protocols": [d1]}
@@ -218,10 +225,12 @@ def test_release_all_clears_registries(mock_logger):
 # EDGE CASES
 # -------------------------------------------------------------------------
 
+
 def test_device_without_get_required_resources(mock_logger):
     class MinimalDevice:
         def initialize(self):
             self.initialized = True
+
         def release(self):
             self.released = True
 

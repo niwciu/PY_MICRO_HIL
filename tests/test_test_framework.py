@@ -1,18 +1,13 @@
 import pytest
-from types import SimpleNamespace
 
-from py_micro_hil.tests_framework import (
-    TestFramework,
-    TestGroup,
-    Test,
-    Peripheral
-)
+from py_micro_hil.tests_framework import TestFramework, TestGroup, Test, Peripheral
 from py_micro_hil.assertions import TEST_ASSERT_EQUAL
 
 
 # ---------------------------------------------------------------------
 # Dummy helpers
 # ---------------------------------------------------------------------
+
 
 class FakePeripheralManager:
     def __init__(self):
@@ -60,11 +55,16 @@ def framework(peripheral_manager, fake_logger):
 # Peripheral ABC
 # ---------------------------------------------------------------------
 
+
 def test_peripheral_is_abstract():
     """Sprawdza, że Peripheral można odziedziczyć i poprawnie zaimplementować."""
+
     class Impl(Peripheral):
-        def initialize(self): pass
-        def release(self): pass
+        def initialize(self):
+            pass
+
+        def release(self):
+            pass
 
     p = Impl()
     assert isinstance(p, Peripheral)
@@ -73,16 +73,22 @@ def test_peripheral_is_abstract():
 def test_peripheral_abstract_enforces_methods():
     """Sprawdza, że klasa bez implementacji metod abstrakcyjnych nie może być zainicjalizowana."""
     with pytest.raises(TypeError):
+
         class BadPeripheral(Peripheral):
             pass
+
         BadPeripheral()
 
 
 def test_peripheral_not_implemented_raises():
     """Sprawdza, że domyślne metody Peripheral rzucają NotImplementedError."""
+
     class Impl(Peripheral):
-        def initialize(self): raise NotImplementedError
-        def release(self): raise NotImplementedError
+        def initialize(self):
+            raise NotImplementedError
+
+        def release(self):
+            raise NotImplementedError
 
     p = Impl()
     with pytest.raises(NotImplementedError):
@@ -95,6 +101,7 @@ def test_peripheral_not_implemented_raises():
 # Initialization / Cleanup phases
 # ---------------------------------------------------------------------
 
+
 def test_missing_initialize_all_method(fake_logger):
     mgr = IncompleteManager()
     fx = TestFramework(mgr, fake_logger)
@@ -105,7 +112,9 @@ def test_missing_initialize_all_method(fake_logger):
 
 def test_initialize_all_exception(fake_logger):
     class Mgr:
-        def initialize_all(self): raise RuntimeError("initfail")
+        def initialize_all(self):
+            raise RuntimeError("initfail")
+
     mgr = Mgr()
     fx = TestFramework(mgr, fake_logger)
     result = fx.run_all_tests()
@@ -115,7 +124,9 @@ def test_initialize_all_exception(fake_logger):
 
 def test_missing_release_all_method(fake_logger):
     class Mgr:
-        def initialize_all(self): pass
+        def initialize_all(self):
+            pass
+
     mgr = Mgr()
     fx = TestFramework(mgr, fake_logger)
     fx.add_test_group(TestGroup("g"))
@@ -127,8 +138,12 @@ def test_missing_release_all_method(fake_logger):
 
 def test_cleanup_raises_exception(fake_logger):
     class Mgr:
-        def initialize_all(self): pass
-        def release_all(self): raise RuntimeError("boom")
+        def initialize_all(self):
+            pass
+
+        def release_all(self):
+            raise RuntimeError("boom")
+
     mgr = Mgr()
     fx = TestFramework(mgr, fake_logger)
     fx.add_test_group(TestGroup("g"))
@@ -162,7 +177,9 @@ def test_report_generation_failure(fake_logger, peripheral_manager, monkeypatch)
     fx = TestFramework(peripheral_manager, fake_logger)
     grp = TestGroup("G")
     fx.add_test_group(grp)
-    monkeypatch.setattr(fx.report_generator, "generate", lambda _: (_ for _ in ()).throw(RuntimeError("repfail")))
+    monkeypatch.setattr(
+        fx.report_generator, "generate", lambda _: (_ for _ in ()).throw(RuntimeError("repfail"))
+    )
     fx.run_all_tests()
     assert any("Report generation failed" in m[0] for m in fake_logger.entries)
 
@@ -170,6 +187,7 @@ def test_report_generation_failure(fake_logger, peripheral_manager, monkeypatch)
 # ---------------------------------------------------------------------
 # Reporting
 # ---------------------------------------------------------------------
+
 
 def test_report_test_result_and_summary(framework, fake_logger):
     framework.report_test_result("G", "t1", True)
@@ -218,12 +236,18 @@ def test_print_summary_with_zero_tests(fake_logger, peripheral_manager):
 # TestGroup behaviour
 # ---------------------------------------------------------------------
 
+
 def test_testgroup_setup_teardown_and_run(framework, fake_logger):
     order = []
 
-    def setup(fr): order.append("setup")
-    def teardown(fr): order.append("teardown")
-    def test_func(fr): order.append("test")
+    def setup(fr):
+        order.append("setup")
+
+    def teardown(fr):
+        order.append("teardown")
+
+    def test_func(fr):
+        order.append("test")
 
     grp = TestGroup("G")
     grp.set_setup(setup)
@@ -287,9 +311,13 @@ def test_duplicate_group_names(framework):
 # Test class
 # ---------------------------------------------------------------------
 
+
 def test_test_run_pass_and_fail(framework, fake_logger):
-    def ok(fr): pass
-    def bad(fr): raise RuntimeError("xx")
+    def ok(fr):
+        pass
+
+    def bad(fr):
+        raise RuntimeError("xx")
 
     t1 = Test("ok", ok)
     t2 = Test("bad", bad)
@@ -297,8 +325,8 @@ def test_test_run_pass_and_fail(framework, fake_logger):
     t2.run(framework, "G")
 
     logs = [m[0] for m in fake_logger.entries]
-    assert any("[PASS]" in l for l in logs)
-    assert any("[FAIL]" in l for l in logs)
+    assert any("[PASS]" in line for line in logs)
+    assert any("[FAIL]" in line for line in logs)
 
 
 def test_single_result_when_using_assertions(framework, fake_logger):
@@ -319,6 +347,7 @@ def test_single_result_when_using_assertions(framework, fake_logger):
 # ---------------------------------------------------------------------
 # Edge: multiple groups, mixed results
 # ---------------------------------------------------------------------
+
 
 def test_multiple_groups(framework, fake_logger):
     g1 = TestGroup("A")

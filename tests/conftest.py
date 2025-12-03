@@ -32,6 +32,7 @@ if "RPi.GPIO" not in sys.modules:
     sys.modules["RPi"].GPIO = gpio_module
 
 if "spidev" not in sys.modules:
+
     class _DummySPI:
         def __init__(self):
             self.bus = None
@@ -58,6 +59,7 @@ if "spidev" not in sys.modules:
     sys.modules["spidev"] = types.SimpleNamespace(SpiDev=_DummySPI)
 
 if "smbus2" not in sys.modules:
+
     class _DummySMBus:
         def __init__(self, bus):
             self.bus = bus
@@ -90,6 +92,7 @@ if "smbus2" not in sys.modules:
     sys.modules["smbus2"] = types.SimpleNamespace(SMBus=_DummySMBus)
 
 if "serial" not in sys.modules:
+
     class _DummySerial:
         def __init__(self, *args, **kwargs):
             self.buffer = b""
@@ -118,11 +121,14 @@ if "serial" not in sys.modules:
     )
 
 if "can" not in sys.modules:
-    sys.modules["can"] = types.SimpleNamespace(interface=types.SimpleNamespace(Bus=lambda *_, **__: None))
+    sys.modules["can"] = types.SimpleNamespace(
+        interface=types.SimpleNamespace(Bus=lambda *_, **__: None)
+    )
 
 if "yaml" not in sys.modules:
     # Minimal YAML shim using Python's built-in safe eval for test purposes only
     import ast
+
     class _YAMLError(Exception):
         pass
 
@@ -143,9 +149,12 @@ if "yaml" not in sys.modules:
     def _safe_dump(data):
         return repr(data)
 
-    sys.modules["yaml"] = types.SimpleNamespace(safe_load=_safe_load, safe_dump=_safe_dump, YAMLError=_YAMLError)
+    sys.modules["yaml"] = types.SimpleNamespace(
+        safe_load=_safe_load, safe_dump=_safe_dump, YAMLError=_YAMLError
+    )
 
 if "jinja2" not in sys.modules:
+
     class _DummyTemplate:
         def __init__(self, content=""):
             self.content = content
@@ -174,6 +183,7 @@ if "jinja2" not in sys.modules:
     )
 
 if "pymodbus" not in sys.modules:
+
     class _DummyModbusClient:
         def __init__(self, *args, **kwargs):
             self.connected = False

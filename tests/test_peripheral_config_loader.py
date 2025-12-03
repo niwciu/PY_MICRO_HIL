@@ -1,13 +1,17 @@
 import yaml
-import serial
 import pytest
 from pathlib import Path
 from unittest.mock import patch
 
 from py_micro_hil.peripheral_config_loader import load_peripheral_configuration
 from py_micro_hil.peripherals.RPiPeripherals import (
-    RPiGPIO, RPiPWM, RPiUART, RPiI2C, RPiSPI,
-    RPiHardwarePWM, RPiOneWire
+    RPiGPIO,
+    RPiPWM,
+    RPiUART,
+    RPiI2C,
+    RPiSPI,
+    RPiHardwarePWM,
+    RPiOneWire,
 )
 from py_micro_hil.peripherals.protocols import ModbusRTU
 
@@ -16,17 +20,18 @@ from py_micro_hil.peripherals.protocols import ModbusRTU
 # FIXTURE: DISABLE KERNEL ONEWIRE FOR ALL NON-ONEWIRE TESTS
 # ============================================================
 
+
 @pytest.fixture(autouse=True)
 def disable_kernel_onewire(monkeypatch):
     monkeypatch.setattr(
-        "py_micro_hil.peripheral_config_loader._detect_kernel_onewire_pin",
-        lambda: None
+        "py_micro_hil.peripheral_config_loader._detect_kernel_onewire_pin", lambda: None
     )
 
 
 # ============================================================
 # HELPERS
 # ============================================================
+
 
 class DummyLogger:
     def __init__(self):
@@ -43,15 +48,26 @@ def write_yaml(tmp_path: Path, payload) -> str:
 
 
 # MOCKS
-def mock_dev_exists_true(path): return True
-def mock_dev_exists_false(path): return False
-def mock_gpio_consumers_empty(): return {}
-def mock_gpio_consumers_pin4_w1(): return {4: "w1-gpio"}
+def mock_dev_exists_true(path):
+    return True
+
+
+def mock_dev_exists_false(path):
+    return False
+
+
+def mock_gpio_consumers_empty():
+    return {}
+
+
+def mock_gpio_consumers_pin4_w1():
+    return {4: "w1-gpio"}
 
 
 # ============================================================
 # BASIC FILE / YAML TESTS
 # ============================================================
+
 
 @patch("py_micro_hil.peripheral_config_loader._dev_exists", mock_dev_exists_true)
 @patch("py_micro_hil.peripheral_config_loader._gpio_consumers", mock_gpio_consumers_empty)
@@ -95,6 +111,7 @@ def test_empty_yaml(tmp_path):
 # MODBUS
 # ============================================================
 
+
 @patch("py_micro_hil.peripheral_config_loader._dev_exists", mock_dev_exists_true)
 @patch("py_micro_hil.peripheral_config_loader._gpio_consumers", mock_gpio_consumers_empty)
 def test_modbus_valid_and_invalid(tmp_path):
@@ -107,7 +124,7 @@ def test_modbus_valid_and_invalid(tmp_path):
                 "baudrate": 115200,
                 "parity": "E",
                 "stopbits": 2,
-                "timeout": 2
+                "timeout": 2,
             }
         }
     }
@@ -134,15 +151,15 @@ def test_modbus_valid_and_invalid(tmp_path):
 # UART
 # ============================================================
 
+
 @patch("py_micro_hil.peripheral_config_loader._dev_exists", mock_dev_exists_true)
 @patch("py_micro_hil.peripheral_config_loader._gpio_consumers", mock_gpio_consumers_empty)
 def test_uart_valid(tmp_path):
-    cfg = {"peripherals": {"uart": {
-        "port": "/dev/ttyUSB0",
-        "baudrate": 4800,
-        "parity": "E",
-        "stopbits": 2
-    }}}
+    cfg = {
+        "peripherals": {
+            "uart": {"port": "/dev/ttyUSB0", "baudrate": 4800, "parity": "E", "stopbits": 2}
+        }
+    }
 
     p = write_yaml(tmp_path, cfg)
     res = load_peripheral_configuration(p)
@@ -167,6 +184,7 @@ def test_uart_invalid_port(tmp_path):
 # ============================================================
 # GPIO
 # ============================================================
+
 
 @patch("py_micro_hil.peripheral_config_loader._dev_exists", mock_dev_exists_true)
 @patch("py_micro_hil.peripheral_config_loader._gpio_consumers", mock_gpio_consumers_empty)
@@ -194,6 +212,7 @@ def test_gpio_invalid_pin(tmp_path):
 # ============================================================
 # PWM / I2C / SPI / HW PWM – identical rule: kernel W1 disabled
 # ============================================================
+
 
 @patch("py_micro_hil.peripheral_config_loader._dev_exists", mock_dev_exists_true)
 @patch("py_micro_hil.peripheral_config_loader._gpio_consumers", mock_gpio_consumers_empty)
@@ -238,6 +257,7 @@ def test_hardware_pwm_valid(tmp_path):
 # 1-WIRE – EXPLICIT KERNEL ENABLE
 # ============================================================
 
+
 @patch("py_micro_hil.peripheral_config_loader._dev_exists", mock_dev_exists_true)
 @patch("py_micro_hil.peripheral_config_loader._gpio_consumers", mock_gpio_consumers_empty)
 @patch("py_micro_hil.peripheral_config_loader._detect_kernel_onewire_pin", lambda: 4)
@@ -277,9 +297,12 @@ def test_onewire_yaml_conflict(tmp_path):
 
     assert res is None
     assert any("cannot be reused" in m.lower() for m in logger.messages)
+
+
 # ============================================================
 # YAML RESOURCE CONFLICTS
 # ============================================================
+
 
 def test_yaml_conflict_gpio_gpio(tmp_path, monkeypatch):
     cfg = {
@@ -303,7 +326,7 @@ def test_yaml_conflict_gpio_gpio(tmp_path, monkeypatch):
 def test_yaml_conflict_uart_modbus(tmp_path, monkeypatch):
     cfg = {
         "peripherals": {"uart": {"port": "/dev/ttyUSB0"}},
-        "protocols": {"modbus": {"port": "/dev/ttyUSB0"}}
+        "protocols": {"modbus": {"port": "/dev/ttyUSB0"}},
     }
 
     logger = DummyLogger()
@@ -314,9 +337,11 @@ def test_yaml_conflict_uart_modbus(tmp_path, monkeypatch):
     assert res is None
     assert any("port /dev/ttyusb0 conflict" in m.lower() for m in logger.messages)
 
+
 # ============================================================
 # SYSTEM-LEVEL DEVICE VALIDATION
 # ============================================================
+
 
 @patch("py_micro_hil.peripheral_config_loader._dev_exists", mock_dev_exists_false)
 def test_system_missing_i2c(tmp_path):
@@ -341,9 +366,11 @@ def test_system_missing_spi(tmp_path):
     assert res is None
     assert any("spi 0.1 is not enabled" in m.lower() for m in logger.messages)
 
+
 # ============================================================
 # UART – FULL NEGATIVE TESTS
 # ============================================================
+
 
 @patch("py_micro_hil.peripheral_config_loader._gpio_consumers", mock_gpio_consumers_empty)
 @patch("py_micro_hil.peripheral_config_loader._dev_exists", mock_dev_exists_true)
@@ -385,6 +412,7 @@ def test_uart_invalid_stopbits(tmp_path):
 # SOFTWARE PWM – negative tests
 # ============================================================
 
+
 def test_pwm_invalid_pin(tmp_path):
     cfg = {"peripherals": {"pwm": [{"pin": 999, "frequency": 1000}]}}
     logger = DummyLogger()
@@ -406,9 +434,11 @@ def test_pwm_invalid_frequency(tmp_path):
     assert res is None
     assert any("invalid pwm frequency" in m.lower() for m in logger.messages)
 
+
 # ============================================================
 # HARDWARE PWM – negative tests
 # ============================================================
+
 
 def test_hw_pwm_invalid_pin(tmp_path):
     cfg = {"peripherals": {"hardware_pwm": [{"pin": 7}]}}
@@ -431,9 +461,11 @@ def test_hw_pwm_invalid_frequency(tmp_path):
     assert res is None
     assert any("invalid hardware pwm frequency" in m.lower() for m in logger.messages)
 
+
 # ============================================================
 # I2C – negative tests
 # ============================================================
+
 
 def test_i2c_invalid_bus(tmp_path):
     cfg = {"peripherals": {"i2c": {"bus": 8}}}
@@ -456,9 +488,11 @@ def test_i2c_invalid_frequency(tmp_path):
     assert res is None
     assert any("invalid i2c frequency" in m.lower() for m in logger.messages)
 
+
 # ============================================================
 # SPI – full negative coverage
 # ============================================================
+
 
 def test_spi_invalid_bus(tmp_path):
     cfg = {"peripherals": {"spi": {"bus": -1, "device": 0}}}
@@ -492,9 +526,11 @@ def test_spi_invalid_mode(tmp_path):
     assert res is None
     assert any("invalid spi mode" in m.lower() for m in logger.messages)
 
+
 # ============================================================
 # GPIO – additional negative tests
 # ============================================================
+
 
 @patch("py_micro_hil.peripheral_config_loader._dev_exists", mock_dev_exists_true)
 def test_gpio_invalid_initial(tmp_path):
@@ -507,4 +543,3 @@ def test_gpio_invalid_initial(tmp_path):
     # invalid initial is WARNING, not ERROR → loader continues
     assert res == {"peripherals": [], "protocols": []}
     assert any("invalid gpio initial" in m.lower() for m in logger.messages)
-

@@ -2,7 +2,6 @@ import sys
 import types
 import importlib.util
 import importlib.metadata
-from pathlib import Path
 import pytest
 
 import py_micro_hil.cli as cli  # upewnij się, że to prawidłowa ścieżka do Twojego pliku CLI
@@ -11,6 +10,7 @@ import py_micro_hil.cli as cli  # upewnij się, że to prawidłowa ścieżka do 
 # ---------------------------------------------------------------------
 # resolve_html_path
 # ---------------------------------------------------------------------
+
 
 def test_resolve_html_path_default(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
@@ -35,6 +35,7 @@ def test_resolve_html_path_with_directory(tmp_path):
 # ---------------------------------------------------------------------
 # parse_args
 # ---------------------------------------------------------------------
+
 
 def test_parse_args_basic(monkeypatch):
     argv = ["prog", "--log", "mylog.txt", "--config", "conf.yaml", "--html", "report.html"]
@@ -150,6 +151,7 @@ def test_log_discovered_devices_reports_attributes():
 # load_test_groups
 # ---------------------------------------------------------------------
 
+
 class DummyLogger:
     def __init__(self):
         self.messages = []
@@ -182,8 +184,7 @@ def test_load_test_groups_with_exception(tmp_path, monkeypatch):
 
     spec = importlib.util.spec_from_file_location("mod", file)
     spec.loader = types.SimpleNamespace(
-        exec_module=fake_exec_module,
-        create_module=fake_create_module
+        exec_module=fake_exec_module, create_module=fake_create_module
     )
 
     monkeypatch.setattr(importlib.util, "spec_from_file_location", lambda n, p: spec)
@@ -206,8 +207,7 @@ def test_load_test_groups_strict_mode_raises(tmp_path, monkeypatch):
 
     spec = importlib.util.spec_from_file_location("mod", file)
     spec.loader = types.SimpleNamespace(
-        exec_module=fake_exec_module,
-        create_module=fake_create_module
+        exec_module=fake_exec_module, create_module=fake_create_module
     )
 
     monkeypatch.setattr(importlib.util, "spec_from_file_location", lambda n, p: spec)
@@ -221,6 +221,7 @@ def test_load_test_groups_strict_mode_raises(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------
 # main()
 # ---------------------------------------------------------------------
+
 
 @pytest.fixture
 def dummy_environment(tmp_path, monkeypatch):
@@ -236,6 +237,7 @@ def dummy_environment(tmp_path, monkeypatch):
             self.logged = []
             self.html_file = None
             self.log_file = None
+
         def log(self, msg, **kw):
             self.logged.append(msg)
 
@@ -248,8 +250,10 @@ def dummy_environment(tmp_path, monkeypatch):
             self.pm = pm
             self.logger = logger
             self.groups = []
+
         def add_test_group(self, g):
             self.groups.append(g)
+
         def run_all_tests(self):
             return 0
 
@@ -274,6 +278,7 @@ def dummy_environment(tmp_path, monkeypatch):
 # run_main helper
 # ---------------------------------------------------------------------
 
+
 def run_main(monkeypatch, argv):
     monkeypatch.setattr(sys, "argv", ["prog"] + argv)
     with pytest.raises(SystemExit) as e:
@@ -284,6 +289,7 @@ def run_main(monkeypatch, argv):
 # ---------------------------------------------------------------------
 # main() test cases
 # ---------------------------------------------------------------------
+
 
 def test_main_success(monkeypatch, dummy_environment, tmp_path):
     test_dir = tmp_path / "hil_tests"
@@ -320,7 +326,9 @@ def test_main_list_tests(monkeypatch, dummy_environment, tmp_path):
 
 
 def test_main_failures(monkeypatch, dummy_environment, tmp_path):
-    def failing_run(self): return 3
+    def failing_run(self):
+        return 3
+
     monkeypatch.setattr(cli.TestFramework, "run_all_tests", failing_run)
     test_dir = tmp_path / "hil_tests"
     test_dir.mkdir()
@@ -330,7 +338,9 @@ def test_main_failures(monkeypatch, dummy_environment, tmp_path):
 
 
 def test_main_unexpected_exception(monkeypatch, dummy_environment, tmp_path):
-    def raise_exc(self): raise RuntimeError("boom")
+    def raise_exc(self):
+        raise RuntimeError("boom")
+
     monkeypatch.setattr(cli.TestFramework, "run_all_tests", raise_exc)
     test_dir = tmp_path / "hil_tests"
     test_dir.mkdir()

@@ -1,6 +1,5 @@
 import types
 import inspect
-import os
 from unittest.mock import Mock
 import pytest
 
@@ -9,13 +8,14 @@ from py_micro_hil.tests_group_factory import (
     wrap_group_function,
     make_wrapped_test,
     add_tests_from_module,
-    create_test_group_from_module
+    create_test_group_from_module,
 )
 
 
 # =============================================================================
 # WRAPPERS
 # =============================================================================
+
 
 def test_wrap_group_function_sets_context(monkeypatch):
     """Testuje poprawne wywołanie set/clear kontekstu przy setup/teardown grupy."""
@@ -28,7 +28,9 @@ def test_wrap_group_function_sets_context(monkeypatch):
         call_log.append("clear")
 
     monkeypatch.setattr("py_micro_hil.tests_group_factory.set_test_context", mock_set_test_context)
-    monkeypatch.setattr("py_micro_hil.tests_group_factory.clear_test_context", mock_clear_test_context)
+    monkeypatch.setattr(
+        "py_micro_hil.tests_group_factory.clear_test_context", mock_clear_test_context
+    )
 
     def dummy_setup():
         call_log.append("setup-ran")
@@ -36,19 +38,18 @@ def test_wrap_group_function_sets_context(monkeypatch):
     wrapped = wrap_group_function(dummy_setup, "MyGroup", "Setup")
     wrapped(Mock())
 
-    assert call_log == [
-        ("set", "MyGroup", "Setup"),
-        "setup-ran",
-        "clear"
-    ]
+    assert call_log == [("set", "MyGroup", "Setup"), "setup-ran", "clear"]
 
 
 def test_wrap_group_function_clears_context_on_exception(monkeypatch):
     """Nawet gdy setup rzuca wyjątek, clear_test_context musi być wywołany."""
     call_log = []
 
-    def mock_set(fr, g, l): call_log.append("set")
-    def mock_clear(): call_log.append("clear")
+    def mock_set(fr, g, L):
+        call_log.append("set")
+
+    def mock_clear():
+        call_log.append("clear")
 
     monkeypatch.setattr("py_micro_hil.tests_group_factory.set_test_context", mock_set)
     monkeypatch.setattr("py_micro_hil.tests_group_factory.clear_test_context", mock_clear)
@@ -74,19 +75,20 @@ def test_make_wrapped_test_calls_without_args(monkeypatch):
     def mock_clear_test_context():
         call_log.append("clear")
 
+        def mock_set(fr, g, label):
+            call_log.append("set")
+
     monkeypatch.setattr("py_micro_hil.tests_group_factory.set_test_context", mock_set)
-    monkeypatch.setattr("py_micro_hil.tests_group_factory.clear_test_context", mock_clear_test_context)
+    monkeypatch.setattr(
+        "py_micro_hil.tests_group_factory.clear_test_context", mock_clear_test_context
+    )
 
     def dummy_test():
         call_log.append("test-called")
 
     wrapped = make_wrapped_test(dummy_test, "test_dummy", "GroupX")
     wrapped(Mock())
-    assert call_log == [
-        ("set", "GroupX", "test_dummy"),
-        "test-called",
-        "clear"
-    ]
+    assert call_log == [("set", "GroupX", "test_dummy"), "test-called", "clear"]
 
 
 def test_make_wrapped_test_calls_with_args(monkeypatch):
@@ -100,25 +102,27 @@ def test_make_wrapped_test_calls_with_args(monkeypatch):
         call_log.append("clear")
 
     monkeypatch.setattr("py_micro_hil.tests_group_factory.set_test_context", mock_set)
-    monkeypatch.setattr("py_micro_hil.tests_group_factory.clear_test_context", mock_clear_test_context)
+    monkeypatch.setattr(
+        "py_micro_hil.tests_group_factory.clear_test_context", mock_clear_test_context
+    )
 
     def dummy_test(framework):
         call_log.append("called-with-fw")
 
     wrapped = make_wrapped_test(dummy_test, "test_with_arg", "GroupY")
     wrapped(Mock())
-    assert call_log == [
-        ("set", "GroupY", "test_with_arg"),
-        "called-with-fw",
-        "clear"
-    ]
+    assert call_log == [("set", "GroupY", "test_with_arg"), "called-with-fw", "clear"]
 
 
 def test_make_wrapped_test_raises_still_clears(monkeypatch):
     """Nawet jeśli test rzuci wyjątek, clear_test_context musi się wykonać."""
     log = []
-    monkeypatch.setattr("py_micro_hil.tests_group_factory.set_test_context", lambda f, g, l: log.append("set"))
-    monkeypatch.setattr("py_micro_hil.tests_group_factory.clear_test_context", lambda: log.append("clear"))
+    monkeypatch.setattr(
+        "py_micro_hil.tests_group_factory.set_test_context", lambda f, g, L: log.append("set")
+    )
+    monkeypatch.setattr(
+        "py_micro_hil.tests_group_factory.clear_test_context", lambda: log.append("clear")
+    )
 
     def failing_test():
         raise RuntimeError("boom")
@@ -132,6 +136,7 @@ def test_make_wrapped_test_raises_still_clears(monkeypatch):
 # =============================================================================
 # MODULE PARSING
 # =============================================================================
+
 
 def test_add_tests_from_module_discovers_functions():
     """Funkcje test_* są wykrywane i dodawane do grupy."""
@@ -170,9 +175,9 @@ def test_add_tests_from_module_ignores_non_callable():
 # GROUP CREATION
 # =============================================================================
 
+
 def test_create_test_group_from_module_integration(tmp_path):
     """Pełna integracja: setup, teardown i test funkcja."""
-    tracker = []
 
     test_code = """
 tracker = []
@@ -188,6 +193,7 @@ def test_example():
     module_path.write_text(test_code)
 
     import importlib.util
+
     spec = importlib.util.spec_from_file_location("py_micro_hil.fake_module", module_path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -216,6 +222,7 @@ def test_only():
     file.write_text(test_code)
 
     import importlib.util
+
     spec = importlib.util.spec_from_file_location("py_micro_hil.mod2", file)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -237,6 +244,7 @@ x = 42
     path = tmp_path / "empty_mod.py"
     path.write_text(code)
     import importlib.util
+
     spec = importlib.util.spec_from_file_location("empty_mod", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

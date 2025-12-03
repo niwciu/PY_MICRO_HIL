@@ -1,13 +1,11 @@
-import os
-import io
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from py_micro_hil.logger import Logger
 
 
 # ---------------------------------------------------------------------
 # Basic logging behaviour
 # ---------------------------------------------------------------------
+
 
 def test_log_to_console_only(capsys):
     logger = Logger()
@@ -41,6 +39,7 @@ def test_flush_log_without_file_and_empty_buffer():
 # ---------------------------------------------------------------------
 # HTML logging
 # ---------------------------------------------------------------------
+
 
 def test_html_log_deduplication():
     mock_report = MagicMock()
@@ -81,6 +80,7 @@ def test_generate_html_report_failure(capsys):
 # Console and color formatting
 # ---------------------------------------------------------------------
 
+
 def test_log_coloring(monkeypatch):
     logger = Logger()
     monkeypatch.setattr("builtins.print", lambda msg: setattr(logger, "_printed", msg))
@@ -91,13 +91,16 @@ def test_log_coloring(monkeypatch):
 def test_log_to_console_fallback(monkeypatch):
     logger = Logger()
     # simulate print raising error
-    monkeypatch.setattr("builtins.print", lambda msg: (_ for _ in ()).throw(RuntimeError("no stdout")))
+    monkeypatch.setattr(
+        "builtins.print", lambda msg: (_ for _ in ()).throw(RuntimeError("no stdout"))
+    )
     logger._log_to_console("[INFO] test")  # should not raise
 
 
 # ---------------------------------------------------------------------
 # File handling and initialization
 # ---------------------------------------------------------------------
+
 
 def test_initialize_log_file(tmp_path):
     log_file = tmp_path / "init.log"
@@ -131,6 +134,7 @@ def test_initialize_log_file_failure(monkeypatch):
 # Context manager
 # ---------------------------------------------------------------------
 
+
 def test_context_manager(tmp_path):
     log_file = tmp_path / "ctx.log"
     with Logger(log_file=str(log_file)) as logger:
@@ -142,6 +146,7 @@ def test_context_manager(tmp_path):
 # Extraction and levels
 # ---------------------------------------------------------------------
 
+
 def test_extract_level_variants():
     logger = Logger()
     assert logger._extract_level("[FAIL] Something broke") == "FAIL"
@@ -152,6 +157,7 @@ def test_extract_level_variants():
 # ---------------------------------------------------------------------
 # HTML + File combined
 # ---------------------------------------------------------------------
+
 
 def test_log_to_html_and_file(tmp_path):
     log_file = tmp_path / "combo.log"

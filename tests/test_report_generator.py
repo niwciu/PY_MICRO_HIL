@@ -1,7 +1,7 @@
 import os
 import pytest
 from unittest.mock import Mock, patch
-from py_micro_hil.report_generator import ReportGenerator, ReportGenerationError
+from py_micro_hil.report_generator import ReportGenerator
 
 
 @pytest.fixture
@@ -10,21 +10,27 @@ def dummy_templates(tmp_path):
     template_dir = tmp_path / "templates"
     template_dir.mkdir()
 
-    (template_dir / "report_template.html").write_text("""
+    (template_dir / "report_template.html").write_text(
+        """
         <html><body>
         <h1>Test Summary</h1>
         Total: {{ total_tests }}, Passed: {{ passed }}, Failed: {{ failed }}
         </body></html>
-    """, encoding="utf-8")
+    """,
+        encoding="utf-8",
+    )
 
-    (template_dir / "test_code_template.html").write_text("""
+    (template_dir / "test_code_template.html").write_text(
+        """
         <html><body>
         <h2>{{ group_name }}</h2>
         {% for test in tests %}
         <div id="{{ test.id }}">{{ test.test_name }}<pre>{{ test.code }}</pre></div>
         {% endfor %}
         </body></html>
-    """, encoding="utf-8")
+    """,
+        encoding="utf-8",
+    )
 
     (template_dir / "styles.css").write_text("body { font-family: sans-serif; }", encoding="utf-8")
 
@@ -35,13 +41,26 @@ def dummy_templates(tmp_path):
 # MAIN REPORT GENERATION
 # -----------------------------------------------------------------------------
 
+
 def test_generate_report(tmp_path, dummy_templates):
     """Generuje kompletny raport HTML i kopiuje plik CSS."""
     mock_logger = Mock()
     mock_logger.html_file = str(tmp_path / "output" / "report.html")
     mock_logger.log_entries = [
-        {"group_name": "Group A", "test_name": "Test A1", "level": "PASS", "message": "OK", "additional_info": "-"},
-        {"group_name": "Group A", "test_name": "Test A2", "level": "FAIL", "message": "FAIL", "additional_info": "-"},
+        {
+            "group_name": "Group A",
+            "test_name": "Test A1",
+            "level": "PASS",
+            "message": "OK",
+            "additional_info": "-",
+        },
+        {
+            "group_name": "Group A",
+            "test_name": "Test A2",
+            "level": "FAIL",
+            "message": "FAIL",
+            "additional_info": "-",
+        },
     ]
 
     mock_test = Mock()
@@ -64,7 +83,9 @@ def test_generate_report(tmp_path, dummy_templates):
     assert "Total: 2" in content
     assert "Passed: 1" in content
     assert "Failed: 1" in content
-    mock_logger.log.assert_any_call(f"✅ HTML report generated at: {os.path.abspath(html_path)}", to_console=True)
+    mock_logger.log.assert_any_call(
+        f"✅ HTML report generated at: {os.path.abspath(html_path)}", to_console=True
+    )
 
 
 def test_generate_empty_groups(tmp_path, dummy_templates):
@@ -100,6 +121,7 @@ def test_generate_skips_if_no_html(tmp_path, dummy_templates):
 # TEST CODE PAGES
 # -----------------------------------------------------------------------------
 
+
 def test_generate_test_code_pages(tmp_path, dummy_templates):
     """Generuje strony kodu źródłowego testów."""
     html_dir = tmp_path / "html"
@@ -132,6 +154,7 @@ def test_generate_test_code_pages(tmp_path, dummy_templates):
 
 def test_source_extraction_failure(tmp_path, dummy_templates):
     """Błąd przy pobieraniu źródła funkcji nie przerywa generowania."""
+
     class BrokenFunc:
         def __getattr__(self, item):
             raise Exception("Cannot inspect")
@@ -160,6 +183,7 @@ def test_source_extraction_failure(tmp_path, dummy_templates):
 # -----------------------------------------------------------------------------
 # FILE VALIDATION
 # -----------------------------------------------------------------------------
+
 
 def test_missing_template_raises(tmp_path):
     """Brak pliku report_template.html powoduje wyjątek."""
@@ -197,6 +221,7 @@ def test_template_not_found_raises(tmp_path):
 # LOGGING & FALLBACK
 # -----------------------------------------------------------------------------
 
+
 def test_log_falls_back_to_print(tmp_path, dummy_templates, capsys):
     """Jeśli logger nie ma metody log(), _log() powinno użyć print()."""
     logger_without_log = Mock(spec=[])
@@ -223,4 +248,3 @@ def test_failed_copy_css_logs_warning(tmp_path, dummy_templates):
     # Sprawdź, że w logach pojawiła się informacja o błędzie CSS
     calls = [str(call.args[0]) for call in mock_logger.log.call_args_list]
     assert any("Could not copy CSS" in msg for msg in calls)
-

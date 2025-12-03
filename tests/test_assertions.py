@@ -8,19 +8,23 @@ class MockFramework:
         self.infos = []
 
     def report_test_result(self, group, test, passed, message=None):
-        self.results.append({
-            "group": group,
-            "test": test,
-            "passed": passed,
-            "message": message,
-        })
+        self.results.append(
+            {
+                "group": group,
+                "test": test,
+                "passed": passed,
+                "message": message,
+            }
+        )
 
     def report_test_info(self, group, test, message):
-        self.infos.append({
-            "group": group,
-            "test": test,
-            "message": message,
-        })
+        self.infos.append(
+            {
+                "group": group,
+                "test": test,
+                "message": message,
+            }
+        )
 
 
 @pytest.fixture
@@ -34,6 +38,7 @@ def context():
 # ---------------------------------------------------------------------
 # Basic assertions with active context
 # ---------------------------------------------------------------------
+
 
 def test_test_assert_equal_pass(context):
     result = assertions.TEST_ASSERT_EQUAL(5, 5)
@@ -92,10 +97,12 @@ def test_test_fail_message(context):
 # Edge cases: exceptions inside assertions
 # ---------------------------------------------------------------------
 
+
 def test_assert_equal_raises_comparison_error(context):
     class Bad:
         def __eq__(self, other):
             raise RuntimeError("boom")
+
     assertions.TEST_ASSERT_EQUAL(Bad(), Bad())
     result = context.results[-1]
     assert result["passed"] is False
@@ -113,6 +120,7 @@ def test_assert_in_raises_type_error(context):
 # ---------------------------------------------------------------------
 # Behavior without framework context
 # ---------------------------------------------------------------------
+
 
 def test_assert_equal_without_context():
     result = assertions.TEST_ASSERT_EQUAL(1, 2, context={})
@@ -142,6 +150,7 @@ def test_fail_message_without_context():
 # ---------------------------------------------------------------------
 # Context management
 # ---------------------------------------------------------------------
+
 
 def test_set_and_clear_context():
     fw = MockFramework()
