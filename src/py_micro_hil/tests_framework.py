@@ -295,7 +295,7 @@ class Test:
     def run(self, framework: TestFramework, group_name: str) -> None:
         """Execute the test function and report its result."""
         framework.current_test_status = None
-        if framework.logger.debug_enabled:
+        if getattr(framework.logger, "debug_enabled", False):
             framework.logger.log(f"[DEBUG] Running test: {self.name}")
         try:
             self.test_func(framework)
