@@ -2,7 +2,7 @@ from pymodbus.client import ModbusSerialClient as ModbusClient
 from abc import ABC, abstractmethod
 import time
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional
 from pprint import pformat
 
 
@@ -110,6 +110,7 @@ class ModbusRTU_API(ABC):
         """Disable debug logging."""
         pass
 
+
 class ModbusRTU(ModbusRTU_API, LoggingMixin):
     def __init__(
         self,
@@ -187,7 +188,7 @@ class ModbusRTU(ModbusRTU_API, LoggingMixin):
         """
         Synchronizes the serial port state by resetting buffers and adding delay.
         Prevents frame parsing errors when reusing the same connection between tests.
-        
+
         WHY PYMODBUS DOESN'T HANDLE THIS:
         - pymodbus assumes a *continuously running* stable serial connection
         - It doesn't account for port state changes between test boundaries
@@ -195,7 +196,7 @@ class ModbusRTU(ModbusRTU_API, LoggingMixin):
         - The hardware needs time to stabilize before a new Modbus transaction can start
         - Frame parsing relies on detecting inter-character gaps (silence) - this fails if
           the port is electrically unstable from the previous test
-        
+
         This inter-test synchronization is a framework-level concern, not a protocol-level one.
         Each Modbus operation (read/write) now ensures the port is synchronized before sending.
         """
@@ -272,7 +273,7 @@ class ModbusRTU(ModbusRTU_API, LoggingMixin):
             if callable(is_err) and is_err():
                 # include the repr for error responses
                 pretty_err = pformat({"error": repr(response)})
-                return "\n".join(["\t" + l for l in pretty_err.splitlines()])
+                return "\n".join(["\t" + line for line in pretty_err.splitlines()])
         except Exception:
             pass
 
@@ -280,14 +281,13 @@ class ModbusRTU(ModbusRTU_API, LoggingMixin):
             ser = self._serialize_obj(response)
             pretty = pformat(ser, width=120)
             # indent each line so the multi-line block is clearly part of the DEBUG log
-            return "\n".join(["\t" + l for l in pretty.splitlines()])
+            return "\n".join(["\t" + line for line in pretty.splitlines()])
         except Exception:
             try:
                 pretty = pformat(repr(response))
-                return "\n".join(["\t" + l for l in pretty.splitlines()])
+                return "\n".join(["\t" + line for line in pretty.splitlines()])
             except Exception:
                 return "<unrepresentable>"
-
 
     def get_initialized_params(self):
         """
@@ -306,8 +306,12 @@ class ModbusRTU(ModbusRTU_API, LoggingMixin):
             raise RuntimeError("Modbus client not initialized.")
         # Synchronize serial port state before reading
         self._sync_serial_port()
-        self._log(f"[DEBUG] send read_holding_registers cmd: slave_address={slave_address}, address={address}, count={count}")
-        response = self.client.read_holding_registers(address=address, count=count, device_id=slave_address)
+        self._log(
+            f"[DEBUG] send read_holding_registers cmd: slave_address={slave_address}, address={address}, count={count}"
+        )
+        response = self.client.read_holding_registers(
+            address=address, count=count, device_id=slave_address
+        )
         if not response or response.isError():
             raise IOError(f"[Modbus] Error response received: {response}")
         pretty = self._format_response(response)
@@ -319,7 +323,9 @@ class ModbusRTU(ModbusRTU_API, LoggingMixin):
             raise RuntimeError("Modbus client not initialized.")
         # Synchronize serial port state before writing
         self._sync_serial_port()
-        self._log(f"[DEBUG] send write_single_register cmd: slave_address={slave_address}, address={address}, value={value}")
+        self._log(
+            f"[DEBUG] send write_single_register cmd: slave_address={slave_address}, address={address}, value={value}"
+        )
         response = self.client.write_register(address=address, value=value, device_id=slave_address)
         if not response or response.isError():
             raise IOError(f"[Modbus] Error response received: {response}")
@@ -332,8 +338,12 @@ class ModbusRTU(ModbusRTU_API, LoggingMixin):
             raise RuntimeError("Modbus client not initialized.")
         # Synchronize serial port state before writing
         self._sync_serial_port()
-        self._log(f"[DEBUG] send write_multiple_registers cmd: slave_address={slave_address}, address={address}, values={values}")
-        response = self.client.write_registers(address=address, value=values, device_id=slave_address)
+        self._log(
+            f"[DEBUG] send write_multiple_registers cmd: slave_address={slave_address}, address={address}, values={values}"
+        )
+        response = self.client.write_registers(
+            address=address, value=values, device_id=slave_address
+        )
         if not response or response.isError():
             raise IOError(f"[Modbus] Error response received: {response}")
         pretty = self._format_response(response)
@@ -345,7 +355,9 @@ class ModbusRTU(ModbusRTU_API, LoggingMixin):
             raise RuntimeError("Modbus client not initialized.")
         # Synchronize serial port state before reading
         self._sync_serial_port()
-        self._log(f"[DEBUG] send read_coils cmd: slave_address={slave_address}, address={address}, count={count}")
+        self._log(
+            f"[DEBUG] send read_coils cmd: slave_address={slave_address}, address={address}, count={count}"
+        )
         response = self.client.read_coils(address=address, count=count, device_id=slave_address)
         if not response or response.isError():
             raise IOError(f"[Modbus] Error response received: {response}")
@@ -358,8 +370,12 @@ class ModbusRTU(ModbusRTU_API, LoggingMixin):
             raise RuntimeError("Modbus client not initialized.")
         # Synchronize serial port state before reading
         self._sync_serial_port()
-        self._log(f"[DEBUG] send read_discrete_inputs cmd: slave_address={slave_address}, address={address}, count={count}")
-        response = self.client.read_discrete_inputs(address=address, count=count, device_id=slave_address)
+        self._log(
+            f"[DEBUG] send read_discrete_inputs cmd: slave_address={slave_address}, address={address}, count={count}"
+        )
+        response = self.client.read_discrete_inputs(
+            address=address, count=count, device_id=slave_address
+        )
         if not response or response.isError():
             raise IOError(f"[Modbus] Error response received: {response}")
         pretty = self._format_response(response)
@@ -371,8 +387,12 @@ class ModbusRTU(ModbusRTU_API, LoggingMixin):
             raise RuntimeError("Modbus client not initialized.")
         # Synchronize serial port state before reading
         self._sync_serial_port()
-        self._log(f"[DEBUG] send read_input_registers cmd: slave_address={slave_address}, address={address}, count={count}")
-        response = self.client.read_input_registers(address=address, count=count, device_id=slave_address)
+        self._log(
+            f"[DEBUG] send read_input_registers cmd: slave_address={slave_address}, address={address}, count={count}"
+        )
+        response = self.client.read_input_registers(
+            address=address, count=count, device_id=slave_address
+        )
         if not response or response.isError():
             raise IOError(f"[Modbus] Error response received: {response}")
         pretty = self._format_response(response)
@@ -384,7 +404,9 @@ class ModbusRTU(ModbusRTU_API, LoggingMixin):
             raise RuntimeError("Modbus client not initialized.")
         # Synchronize serial port state before writing
         self._sync_serial_port()
-        self._log(f"[DEBUG] send write_single_coil cmd: slave_address={slave_address}, address={address}, value={value}")
+        self._log(
+            f"[DEBUG] send write_single_coil cmd: slave_address={slave_address}, address={address}, value={value}"
+        )
         response = self.client.write_coil(address=address, value=value, device_id=slave_address)
         if not response or response.isError():
             raise IOError(f"[Modbus] Error response received: {response}")
@@ -397,7 +419,9 @@ class ModbusRTU(ModbusRTU_API, LoggingMixin):
             raise RuntimeError("Modbus client not initialized.")
         # Synchronize serial port state before writing
         self._sync_serial_port()
-        self._log(f"[DEBUG] send write_multiple_coils cmd: slave_address={slave_address}, address={address}, values={values}")
+        self._log(
+            f"[DEBUG] send write_multiple_coils cmd: slave_address={slave_address}, address={address}, values={values}"
+        )
         response = self.client.write_coils(address=address, value=values, device_id=slave_address)
         if not response or response.isError():
             raise IOError(f"[Modbus] Error response received: {response}")
