@@ -95,6 +95,12 @@ class TestFramework:
             self.fail_count += 1
             return self.fail_count
 
+            # --- Enable/disable logging for all peripherals based on debug_enabled flag ---
+            if self.logger.debug_enabled:
+                self.peripheral_manager.enable_logging_all()
+            else:
+                self.peripheral_manager.disable_logging_all()
+
         # --- Test execution phase ---
         self.logger.log("\n=================== TEST EXECUTION ===================", to_console=True)
         for group in self.test_groups:

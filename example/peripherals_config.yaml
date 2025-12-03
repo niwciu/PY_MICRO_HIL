@@ -38,15 +38,15 @@ peripherals:
     frequency: 100000
 
   # --- SPI ---
-  spi:
-    bus: 0
-    device: 0
-    max_speed_hz: 1000000
-    mode: 0
-    bits_per_word: 8
-    cs_high: false
-    lsbfirst: false
-    timeout: 1
+  # spi:
+  #   bus: 0
+  #   device: 0
+  #   max_speed_hz: 1000000
+  #   mode: 0
+  #   bits_per_word: 8
+  #   cs_high: false
+  #   lsbfirst: false
+  #   timeout: 1
 
   # # --- 1-Wire (DS18B20 itp.) ---
   # one_wire:

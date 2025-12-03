@@ -413,6 +413,8 @@ def load_peripheral_configuration(yaml_file=None, logger=None):
                         parity=parity_char,
                         stopbits=stopbits_val,
                         timeout=timeout,
+                        logger=logger,
+                        logging_enabled=True,
                     )
                 )
         else:
