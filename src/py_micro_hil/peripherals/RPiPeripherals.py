@@ -151,6 +151,23 @@ class RPiGPIO(LoggingMixin, ResourceMixin, RPiGPIO_API):
 
         raise TypeError("pin must be an int or string label")
 
+    def _pin_label(self, pin: Union[int, str]) -> str:
+        """Return a label string for a pin if a name is configured, else empty string.
+
+        Example: ' (LED)'
+        """
+        resolved = None
+        try:
+            resolved = self._resolve_pin(pin)
+        except Exception:
+            return ""
+
+        cfg = self._pin_config.get(resolved, {})
+        name = cfg.get("name") if isinstance(cfg, dict) else None
+        if isinstance(name, str) and name.strip():
+            return f" ({name})"
+        return ""
+
     def _normalize_value(self, value: Union[int, str, bool]) -> int:
         if isinstance(value, str):
             normalized = value.strip().lower()
@@ -176,13 +193,15 @@ class RPiGPIO(LoggingMixin, ResourceMixin, RPiGPIO_API):
         resolved_pin = self._resolve_pin(pin)
         normalized_value = self._normalize_value(value)
         GPIO.output(resolved_pin, normalized_value)
-        self._log(f"[DEBUG] Wrote value {normalized_value} to pin {resolved_pin}")
+        label = self._pin_label(resolved_pin)
+        self._log(f"[DEBUG] Wrote value {normalized_value} to pin {resolved_pin}{label}")
 
     def read(self, pin: Union[int, str]) -> int:
         """Read digital input value from a pin."""
         resolved_pin = self._resolve_pin(pin)
         val = GPIO.input(resolved_pin)
-        self._log(f"[DEBUG] Read value {val} from pin {resolved_pin}")
+        label = self._pin_label(resolved_pin)
+        self._log(f"[DEBUG] Read value {val} from pin {resolved_pin}{label}")
         return val
 
     def toggle(self, pin: Union[int, str]) -> None:
@@ -190,7 +209,8 @@ class RPiGPIO(LoggingMixin, ResourceMixin, RPiGPIO_API):
         resolved_pin = self._resolve_pin(pin)
         current = GPIO.input(resolved_pin)
         GPIO.output(resolved_pin, not current)
-        self._log(f"[DEBUG] Toggled pin {resolved_pin} to {not current}")
+        label = self._pin_label(resolved_pin)
+        self._log(f"[DEBUG] Toggled pin {resolved_pin}{label} to {not current}")
 
     def release(self) -> None:
         """Clean up all configured GPIO pins."""
