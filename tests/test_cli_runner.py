@@ -74,7 +74,7 @@ def test_get_project_version_reads_pyproject(monkeypatch):
 
     monkeypatch.setattr(importlib.metadata, "version", raise_not_found)
     version = cli.get_project_version()
-    assert version == "0.1.5"
+    assert version == "0.1.6"
 
 
 # ---------------------------------------------------------------------
@@ -83,12 +83,16 @@ def test_get_project_version_reads_pyproject(monkeypatch):
 
 
 def test_create_test_group_file_success(tmp_path, monkeypatch):
-    template = tmp_path / "template.py"
-    template.write_text("# template\nclass {test_group_name}: pass\n")
     target_dir = tmp_path / "hil_tests"
     target_dir.mkdir()
 
-    monkeypatch.setattr(cli, "get_template_path", lambda: template)
+    # mock template content
+    monkeypatch.setattr(
+        cli,
+        "get_template_content",
+        lambda: "# template\nclass {test_group_name}: pass\n",
+    )
+
     logger = DummyLogger()
 
     created = cli.create_test_group_file("alpha", target_dir, logger)
@@ -100,15 +104,20 @@ def test_create_test_group_file_success(tmp_path, monkeypatch):
     assert any("Created test group template" in msg for msg in logger.messages)
 
 
+
 def test_create_test_group_file_existing(tmp_path, monkeypatch):
-    template = tmp_path / "template.py"
-    template.write_text("# template\nclass {test_group_name}: pass\n")
+    monkeypatch.setattr(
+        cli,
+        "get_template_content",
+        lambda: "# template\nclass {test_group_name}: pass\n",
+    )
+
     target_dir = tmp_path / "hil_tests"
     target_dir.mkdir()
+
     existing = target_dir / "test_alpha.py"
     existing.write_text("# existing")
 
-    monkeypatch.setattr(cli, "get_template_path", lambda: template)
     logger = DummyLogger()
 
     created = cli.create_test_group_file("alpha", target_dir, logger)
@@ -117,18 +126,23 @@ def test_create_test_group_file_existing(tmp_path, monkeypatch):
     assert any("already exists" in msg for msg in logger.messages)
 
 
+
 def test_create_test_group_file_missing_dir(tmp_path, monkeypatch):
-    template = tmp_path / "template.py"
-    template.write_text("# template\nclass {test_group_name}: pass\n")
+    monkeypatch.setattr(
+        cli,
+        "get_template_content",
+        lambda: "# template\nclass {test_group_name}: pass\n",
+    )
+
     target_dir = tmp_path / "missing"
 
-    monkeypatch.setattr(cli, "get_template_path", lambda: template)
     logger = DummyLogger()
 
     created = cli.create_test_group_file("alpha", target_dir, logger)
 
     assert created is False
     assert any("does not exist" in msg for msg in logger.messages)
+
 
 
 # ---------------------------------------------------------------------

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "py-micro-hil"
-version = "0.1.5"
+version = "0.1.6"
 description = "Hardware-in-the-Loop testing framework"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -47,7 +47,8 @@ where = ["src"]
 [tool.setuptools.package-data]
 py_micro_hil = [
     "templates/*.html",
-    "templates/*.css"
+    "templates/*.css",
+    "templates/*.py"
 ]
 
 # Tools configuration
@@ -57,6 +58,9 @@ line-length = 100
 [tool.flake8]
 max-line-length = 100
 ignore = ["E203", "W503"]
+exclude = [
+    "templates"
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -2,6 +2,7 @@ import sys
 import os
 import importlib.metadata
 import importlib.util
+from importlib.resources import files
 from pathlib import Path
 import argparse
 
@@ -164,28 +165,19 @@ def parse_args():
     return args
 
 
-def get_template_path():
-    """Return the path to the test group template file."""
-    project_root = Path(__file__).resolve().parents[2]
-    return project_root / "example" / "test_group_template.py"
+def get_template_content() -> str:
+    """Load template file text from the installed package."""
+    resource = files("py_micro_hil.templates") / "test_group_template.py"
+    return resource.read_text()
 
 
 def create_test_group_file(group_name: str, target_dir: Path, logger: Logger) -> bool:
     """
     Create a new test group file from the template.
-
     Returns True on success, False otherwise.
     """
 
-    template_path = get_template_path()
-    if not template_path.exists():
-        logger.log(
-            f"[ERROR] ❌ Template file not found at '{template_path}'.",
-            to_console=True,
-            to_log_file=True,
-        )
-        return False
-
+    # ensure target directory exists
     if not target_dir.exists():
         logger.log(
             f"[ERROR] ❌ Test directory '{target_dir}' does not exist.",
@@ -195,6 +187,8 @@ def create_test_group_file(group_name: str, target_dir: Path, logger: Logger) ->
         return False
 
     destination = target_dir / f"test_{group_name}.py"
+
+    # prevent overwriting
     if destination.exists():
         logger.log(
             f"[ERROR] ❌ File '{destination}' already exists. Aborting creation.",
@@ -204,10 +198,16 @@ def create_test_group_file(group_name: str, target_dir: Path, logger: Logger) ->
         return False
 
     try:
-        template_content = template_path.read_text()
-        rendered_content = template_content.format(test_group_name=group_name)
-        destination.write_text(rendered_content)
-    except Exception as exc:  # pragma: no cover - defensive
+        # load template content from package (installation-safe)
+        template_content = get_template_content()
+
+        # apply formatting
+        rendered = template_content.format(test_group_name=group_name)
+
+        # write final file
+        destination.write_text(rendered)
+
+    except Exception as exc:
         logger.log(
             f"[ERROR] ❌ Failed to create test group file: {exc}",
             to_console=True,
@@ -226,8 +226,8 @@ def create_test_group_file(group_name: str, target_dir: Path, logger: Logger) ->
 def load_test_groups(test_directory, logger, strict_imports: bool = False):
     """Dynamically loads test groups from test modules in a specified directory."""
     test_groups = []
-    for root, _, files in os.walk(test_directory):
-        for file in files:
+    for root, _, filenames in os.walk(test_directory):  # <-- zmieniono files → filenames
+        for file in filenames:
             if file.startswith("test_") and file.endswith(".py"):
                 module_path = os.path.join(root, file)
                 module_name = os.path.splitext(os.path.relpath(module_path, test_directory))[
