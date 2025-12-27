@@ -223,7 +223,10 @@ Full contribution guide:
 
 ## 📄 License
 
-MIT License © 2025 – [@niwciu](https://github.com/niwciu)
+This project is licensed under a **custom non-commercial license**.
+
+Commercial use is strictly prohibited without prior written permission.
+See the [LICENSE](LICENSE) file for full terms.
 
 ---
 
