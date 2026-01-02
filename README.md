@@ -84,7 +84,7 @@ peripherals:
 ```
 
 Full configuration reference:  
-📖 [Configuration and YAML guide →](https://niwciu.github.io/PY_MICRO_HIL/configuration/)
+📖 [Configuration and YAML guide →](https://niwciu.github.io/PY_MICRO_HIL/hardware-configuration/)
 
 ---
 
@@ -158,7 +158,7 @@ hiltests --html ./reports/report.html
 ```
 
 Reports can be customized with name and path.  
-See: [Reports and Logging →](https://niwciu.github.io/PY_MICRO_HIL/reports/)
+See: [Reports and Logging →](https://niwciu.github.io/PY_MICRO_HIL/reports-and-artifacts/)
 
 ---
 
@@ -217,7 +217,7 @@ Please ensure your code follows **PEP-8** style and includes tests.
 5. Submit a pull request with a clear description and test coverage.
 
 Full contribution guide:  
-📘 [Developer Guide →](https://niwciu.github.io/PY_MICRO_HIL/contributing/)
+📘 [Developer Guide →](https://niwciu.github.io/PY_MICRO_HIL/developer-guide/)
 
 ---
 
@@ -226,7 +226,7 @@ Full contribution guide:
 This project is licensed under a **custom non-commercial license**.
 
 Commercial use is strictly prohibited without prior written permission.
-See the [LICENSE](LICENSE) file for full terms.
+See the [LICENSE](https://github.com/niwciu/PY_MICRO_HIL/blob/main/LICENSE) file for full terms.
 
 ---
 
