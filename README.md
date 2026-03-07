@@ -1,3 +1,4 @@
+![py-micro-hil](https://github.com/user-attachments/assets/df04bf2b-8f0e-4f82-8d09-2250c391630a)
 # Py-Micro-HIL
 
 > **Py-Micro-HIL** is a modular, lightweight **Hardware-in-the-Loop (HIL) testing framework** for Python.  
