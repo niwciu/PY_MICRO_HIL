@@ -1,25 +1,49 @@
-import sys
-import re
-from py_micro_hil.utils.system import is_raspberry_pi
-import RPi.GPIO as GPIO
-import spidev
-import serial
-from smbus2 import SMBus
 import glob
-
 import logging
+import re
+import sys
+import types
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union
 
+from py_micro_hil.utils.system import is_raspberry_pi
+
 ON_RPI = is_raspberry_pi()
+_mock = None
 
-if not ON_RPI:
-    from py_micro_hil.peripherals import dummyRPiPeripherals as mock
+if ON_RPI:
+    try:
+        import RPi.GPIO as GPIO  # noqa: E402
+        import spidev  # noqa: E402
+        from smbus2 import SMBus  # noqa: E402
+    except ImportError as e:
+        raise ImportError(
+            "Raspberry Pi hardware libraries are missing. Install with:\n"
+            "  pip install 'py-micro-hil[rpi]'\n"
+            "or from source:\n"
+            "  pip install -e \".[rpi]\""
+        ) from e
+else:
+    from py_micro_hil.peripherals import dummyRPiPeripherals as _mock  # noqa: E402
 
-    sys.modules["RPi.GPIO"] = mock.GPIO
-    sys.modules["spidev"] = mock.spidev
-    sys.modules["smbus2"] = type("smbus2", (), {"SMBus": mock.SMBus})
-    sys.modules["serial"] = mock.serial
+    if "RPi" not in sys.modules:
+        sys.modules["RPi"] = types.ModuleType("RPi")
+    if "RPi.GPIO" not in sys.modules:
+        sys.modules["RPi.GPIO"] = _mock.GPIO
+        sys.modules["RPi"].GPIO = _mock.GPIO
+    if "spidev" not in sys.modules:
+        sys.modules["spidev"] = _mock.spidev
+    if "smbus2" not in sys.modules:
+        sys.modules["smbus2"] = type("smbus2", (), {"SMBus": _mock.SMBus})
+
+    import RPi.GPIO as GPIO  # noqa: E402
+    import spidev  # noqa: E402
+    from smbus2 import SMBus  # noqa: E402
+
+import serial  # noqa: E402
+
+if not ON_RPI and _mock is not None:
+    sys.modules["serial"] = _mock.serial
 
 
 # Mixins for logging and resource management

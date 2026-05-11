@@ -1,3 +1,4 @@
+![py-micro-hil](https://github.com/user-attachments/assets/df04bf2b-8f0e-4f82-8d09-2250c391630a)
 # Py-Micro-HIL
 
 > **Py-Micro-HIL** is a modular, lightweight **Hardware-in-the-Loop (HIL) testing framework** for Python.  
@@ -29,10 +30,20 @@ With this framework you can:
 
 ## ⚙️ Installation
 
+Default installs are for **PC simulation**, CI, and non-Pi Linux (no `RPi.GPIO` / `spidev` / `smbus2` wheels required). On a **Raspberry Pi** with real GPIO, SPI, or I2C hardware, add the **`rpi`** extra.
+
 ### 🧰 Option 1 – From PyPI (recommended for most users)
+
+PC / simulation / CI:
 
 ```bash
 pip install py-micro-hil
+```
+
+Raspberry Pi with real hardware libraries:
+
+```bash
+pip install 'py-micro-hil[rpi]'
 ```
 
 ### 🧪 Option 2 – From source (for contributors)
@@ -43,6 +54,18 @@ cd PY_MICRO_HIL
 pip install -e .
 ```
 
+With dev tools only (same as PC default — no Pi-specific wheels):
+
+```bash
+pip install -e ".[dev]"
+```
+
+On a Raspberry Pi, include hardware dependencies:
+
+```bash
+pip install -e ".[dev,rpi]"
+```
+
 > 💡 On your hil test server, you can use the flag `--break-system-packages` to simplify installation and usage for CI/CD environments:
 > ```bash
 > pip install py-micro-hil --break-system-packages
@@ -51,19 +74,13 @@ pip install -e .
 
 ### dependencies
 
-```
-pymodbus, pytest, smbus2, spidev, pyserial
-```
+Core (all platforms): `pyserial`, `PyYAML`, `pymodbus`, `jinja2`, `termcolor`.
 
-### Developer setup
+Optional extra **`[rpi]`** (Raspberry Pi hardware): `RPi.GPIO`, `spidev`, `smbus2`.
 
-For development and contribution:
+Developer tools: `pytest`, `pytest-cov`, `flake8`, `black`, `build`, `twine` (install with `.[dev]`).
 
-```bash
-git clone https://github.com/niwciu/PY_MICRO_HIL.git
-cd PY_MICRO_HIL
-pip install -e .[dev]
-```
+For day-to-day development after cloning, use `pip install -e ".[dev]"` on PC or CI, or `pip install -e ".[dev,rpi]"` on a Raspberry Pi with real hardware.
 
 ---
 
